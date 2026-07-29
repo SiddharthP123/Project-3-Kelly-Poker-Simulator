@@ -30,7 +30,7 @@ solid and tested before any API or UI is built on top of it.
 |---|---|---|
 | 1 | Cards, Deck & Dealing | ✅ Done |
 | 2 | Hand Evaluator | ✅ Done |
-| 3 | Monte Carlo Equity Calculator | ⬜ Not started |
+| 3 | Monte Carlo Equity Calculator | ✅ Done |
 | 4 | Expected Value & Pot Odds | ⬜ Not started |
 | 5 | The Kelly Criterion | ⬜ Not started |
 | 6 | Bankroll Simulator | ⬜ Not started |
@@ -102,4 +102,34 @@ Run just this part's tests:
 
 ```bash
 pytest tests/test_hand_evaluator.py -v
+```
+
+---
+
+## Part 3: Monte Carlo Equity Calculator
+
+**Key insight:** we don't know the opponents' hole cards or the rest of the board, but we do
+know the pool of cards they could possibly be. Rather than solving the win probability
+analytically (the exact combinatorics get messy fast), we repeatedly guess a plausible
+reality — deal the unknown cards at random, see who wins with Part 2's `compare_hands` — thousands
+of times, and let the win rate converge to the true probability. Same Monte Carlo idea as
+Project 1, just applied to cards instead of price paths.
+
+`calculate_equity(hole_cards, num_opponents, board, num_simulations, seed)` returns an
+`EquityResult` with `win` / `tie` / `lose` shares plus `equity` — the expected pot share (1 per
+outright win, 1/n per n-way tie, 0 per loss). `equity` is the number later parts (EV, Kelly)
+actually need, since a tie only wins back a fraction of the pot, not the whole thing.
+
+Sanity-checked against a well-known benchmark: pocket Aces heads-up against one random hand wins
+**85.2%** of the time over 20,000 simulations, matching the commonly cited ~85% figure almost
+exactly.
+
+- `poker/equity.py` — `EquityResult` dataclass, `calculate_equity(...)`. Opponents are assumed to
+  hold uniformly random hole cards (no modelled "range") — the standard, simplest equity
+  calculation, and the one the AI opponents in Part 7 will call directly.
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_equity.py -v
 ```

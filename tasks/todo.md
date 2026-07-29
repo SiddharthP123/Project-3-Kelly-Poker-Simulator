@@ -5,7 +5,7 @@
 - [x] Repo scaffolding (gitignore, requirements, README, tasks folder)
 - [x] Part 1: Cards, Deck & Dealing
 - [x] Part 2: Hand Evaluator
-- [ ] Part 3: Monte Carlo Equity Calculator
+- [x] Part 3: Monte Carlo Equity Calculator
 - [ ] Part 4: Expected Value & Pot Odds
 - [ ] Part 5: The Kelly Criterion
 - [ ] Part 6: Bankroll Simulator
