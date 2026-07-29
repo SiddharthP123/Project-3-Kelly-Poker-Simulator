@@ -32,7 +32,7 @@ solid and tested before any API or UI is built on top of it.
 | 2 | Hand Evaluator | ✅ Done |
 | 3 | Monte Carlo Equity Calculator | ✅ Done |
 | 4 | Expected Value & Pot Odds | ✅ Done |
-| 5 | The Kelly Criterion | ⬜ Not started |
+| 5 | The Kelly Criterion | ✅ Done |
 | 6 | Bankroll Simulator | ⬜ Not started |
 | 7 | Simple AI Opponents | ⬜ Not started |
 | 8 | Backend API (FastAPI) | ⬜ Not started |
@@ -160,4 +160,45 @@ Run just this part's tests:
 
 ```bash
 pytest tests/test_ev.py -v
+```
+
+---
+
+## Part 5: The Kelly Criterion
+
+**This is the finance parallel the whole project is built around.** Kelly was developed for
+exactly this kind of gambling problem — what fraction of your bankroll to stake on a repeatable
+bet with a known edge — but the identical formula is used to size positions in a real investment
+portfolio. If you have an edge (expected return better than break-even) and know the "odds" (the
+payoff structure of the bet/trade), Kelly gives the fraction of capital to allocate that
+maximises long-run *compound* growth. Ed Thorp used this exact reasoning to go from card
+counting in blackjack to running a hedge fund.
+
+**Key insight:** Kelly isn't derived by guesswork — it's the fraction `f` that maximises expected
+*log*-growth per bet, `g(f) = p·ln(1 + f·b) + q·ln(1 - f)`, not expected value. Log-growth (not
+plain EV) is the right thing to maximise for a bet you repeat many times, because bankroll
+compounds multiplicatively — maximising raw EV instead would push you toward betting your whole
+bankroll every time, which guarantees eventual ruin. Setting `g'(f) = 0` and solving gives the
+closed-form formula: `f* = (p·b − q) / b`. The test suite proves this directly — for several
+`(p, b)` pairs, it checks that `expected_log_growth` at the computed Kelly fraction is never
+beaten by any nearby fraction, confirming the formula really is the calculus-derived optimum, not
+just a memorised expression.
+
+A negative `f*` means there's no edge at all — the correct action is to bet nothing, not to bet a
+negative amount (you can't take the other side of a poker hand you're already holding).
+`fractional_kelly` clips this to 0. It also supports betting less than full Kelly ("half Kelly"
+etc.) — growth near the Kelly peak is flat, but variance keeps rising linearly with bet size, so
+practitioners commonly trade a little growth for meaningfully lower drawdowns. Part 6 compares
+these strategies directly.
+
+- `poker/kelly.py` — `kelly_fraction(win_probability, odds)` (raw formula), `fractional_kelly(...,
+  fraction=1.0)` (clipped, scalable), `kelly_fraction_from_pot_odds(equity, pot_size,
+  bet_to_call, kelly_multiplier=1.0)` (bridges Parts 3 & 4 — calling risks `bet_to_call` to win
+  `pot_size`, i.e. "b to 1" odds of `pot_size / bet_to_call`), and `expected_log_growth(...)` (the
+  theoretical justification, and the same function real position-sizing math uses).
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_kelly.py -v
 ```
