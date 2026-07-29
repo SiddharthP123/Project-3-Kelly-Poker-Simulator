@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Environment / secrets
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Node (frontend, added later)
+node_modules/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
