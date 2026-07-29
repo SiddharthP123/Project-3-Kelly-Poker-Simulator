@@ -29,7 +29,7 @@ solid and tested before any API or UI is built on top of it.
 | Part | Topic | Status |
 |---|---|---|
 | 1 | Cards, Deck & Dealing | ✅ Done |
-| 2 | Hand Evaluator | ⬜ Not started |
+| 2 | Hand Evaluator | ✅ Done |
 | 3 | Monte Carlo Equity Calculator | ⬜ Not started |
 | 4 | Expected Value & Pot Odds | ⬜ Not started |
 | 5 | The Kelly Criterion | ⬜ Not started |
@@ -70,4 +70,36 @@ Run just this part's tests:
 
 ```bash
 pytest tests/test_cards.py tests/test_deck.py -v
+```
+
+---
+
+## Part 2: Hand Evaluator
+
+**Key insight:** every 5-card hand can be reduced to one sortable tuple:
+`(category, tiebreakers)`. Once every hand is turned into one of these tuples, deciding a winner
+is just Python's `max()` over tuples — no special-cased "if flush beats straight" logic is
+needed anywhere, because tuple comparison already checks the category first and only falls
+through to tiebreakers when two hands share a category.
+
+The tiebreakers themselves come from one trick: group the 5 ranks by how often each appears,
+then sort those groups by `(count, rank)` descending. That single ordering produces the correct
+tiebreak order for every category that involves duplicate ranks — e.g. for two pair the result is
+`(high_pair, low_pair, kicker)`, which is exactly the order poker rules say to compare in (higher
+pair first, even if the other hand's low pair or kicker is better).
+
+Two things need special-casing on top of that: straights (need 5 *distinct*, consecutive ranks —
+including the "wheel", A-2-3-4-5, where the Ace plays low and the straight is 5-high, not
+Ace-high) and flushes (all 5 cards share a suit). A straight flush is just a hand that is both.
+
+- `poker/hand_evaluator.py` — `HandCategory` (ordered enum, high card through straight flush),
+  `evaluate_5(cards)` for exactly 5 cards, `best_hand(cards)` for 5-7 cards (checks all `C(7,5) =
+  21` five-card combinations and keeps the best — simple brute force, fast enough at this scale),
+  and `compare_hands(hands)` which returns the winning player index/indices (more than one index
+  means a split pot).
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_hand_evaluator.py -v
 ```
