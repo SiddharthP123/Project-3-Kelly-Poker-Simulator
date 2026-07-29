@@ -31,7 +31,7 @@ solid and tested before any API or UI is built on top of it.
 | 1 | Cards, Deck & Dealing | ✅ Done |
 | 2 | Hand Evaluator | ✅ Done |
 | 3 | Monte Carlo Equity Calculator | ✅ Done |
-| 4 | Expected Value & Pot Odds | ⬜ Not started |
+| 4 | Expected Value & Pot Odds | ✅ Done |
 | 5 | The Kelly Criterion | ⬜ Not started |
 | 6 | Bankroll Simulator | ⬜ Not started |
 | 7 | Simple AI Opponents | ⬜ Not started |
@@ -132,4 +132,32 @@ Run just this part's tests:
 
 ```bash
 pytest tests/test_equity.py -v
+```
+
+---
+
+## Part 4: Expected Value & Pot Odds
+
+**Key insight:** pot odds convert a bet size into a probability threshold. Given a pot of size
+`P` facing a bet of `B`, calling breaks even when `equity * P == (1 - equity) * B` — solving for
+equity gives `B / (P + B)`, the minimum win probability needed to call profitably. Comparing
+Part 3's simulated equity against that single number tells you whether to call, without ever
+computing a dollar EV. This is the exact same "compare an estimated probability to a break-even
+threshold" logic used to judge whether an investment's expected return justifies its risk.
+
+Raising is modelled as a probability-weighted mix of two outcomes: the opponent folds now (you
+win the pot as it stands) or they call (it goes to showdown, and the math collapses back to the
+same call-EV formula, just using the raise size as the bet). No full game-tree solving needed —
+just one extra input, an assumed fold probability.
+
+- `poker/ev.py` — `pot_odds_breakeven_equity(pot_size, bet_to_call)`, `ev_fold()` (always 0 —
+  folding risks and wins nothing further), `ev_call(equity, pot_size, bet_to_call)`,
+  `ev_raise(equity, pot_size, raise_amount, fold_probability)`, and `best_action(...)` which picks
+  the highest-EV action out of fold/call/(optional) raise and returns a `Decision` showing the EV
+  of every option considered.
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_ev.py -v
 ```

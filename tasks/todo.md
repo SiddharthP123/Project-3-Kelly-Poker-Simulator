@@ -6,7 +6,7 @@
 - [x] Part 1: Cards, Deck & Dealing
 - [x] Part 2: Hand Evaluator
 - [x] Part 3: Monte Carlo Equity Calculator
-- [ ] Part 4: Expected Value & Pot Odds
+- [x] Part 4: Expected Value & Pot Odds
 - [ ] Part 5: The Kelly Criterion
 - [ ] Part 6: Bankroll Simulator
 - [ ] Part 7: Simple AI Opponents
