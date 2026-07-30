@@ -33,7 +33,7 @@ solid and tested before any API or UI is built on top of it.
 | 3 | Monte Carlo Equity Calculator | ✅ Done |
 | 4 | Expected Value & Pot Odds | ✅ Done |
 | 5 | The Kelly Criterion | ✅ Done |
-| 6 | Bankroll Simulator | ⬜ Not started |
+| 6 | Bankroll Simulator | ✅ Done |
 | 7 | Simple AI Opponents | ⬜ Not started |
 | 8 | Backend API (FastAPI) | ⬜ Not started |
 | 9 | Authentication & Security | ⬜ Not started |
@@ -201,4 +201,48 @@ Run just this part's tests:
 
 ```bash
 pytest tests/test_kelly.py -v
+```
+
+---
+
+## Part 6: Bankroll Simulator
+
+**Key insight:** the "aggressive growth vs. safety" trade-off in bet sizing isn't a matter of risk
+tolerance — it's a direct mathematical consequence of how the *same* sequence of wins and losses
+compounds under different stake sizes. Past the Kelly fraction, both risk of ruin **and** long-run
+growth get worse together, because a big loss erases gains faster than wins can rebuild them.
+Kelly betting can never hit exactly zero from a finite run of bets (every stake is a fraction
+below 1 of whatever remains — "Kelly can't go broke"), while all-in betting means any single loss
+is total, immediate ruin. Part 5 proved the growth-maximising property algebraically; this part
+demonstrates the ruin side of the story empirically, simulating the same modest edge
+(55% win probability, even-money odds) under four staking strategies over 200 hands:
+
+![Bankroll growth curves by staking strategy](docs/part-6-plots/bankroll_growth_curves.png)
+
+![Risk of ruin and median final bankroll by strategy](docs/part-6-plots/risk_of_ruin_comparison.png)
+
+Full Kelly has both the **highest median outcome** and **zero risk of ruin** — it isn't a
+trade-off between the two, it strictly dominates every less-adapted strategy tested. All-in has
+the same edge but a 100% risk of ruin, because surviving 200 hands undefeated at 55% is
+astronomically unlikely, and a single loss with an all-in stake is unrecoverable.
+
+- `poker/bankroll.py` — `fixed_stake_strategy`, `kelly_strategy(kelly_multiplier)`,
+  `all_in_strategy` (three staking strategies, each a function of `(initial_bankroll,
+  current_bankroll, win_probability, odds) -> stake_amount`), `simulate_session` (one sequence of
+  hands under a strategy), and `simulate_many_sessions` (the Monte Carlo layer — same idea as
+  Part 3's equity calculator, applied to bankroll trajectories instead of single hands),
+  reporting risk of ruin and mean/median final bankroll.
+- `scripts/plot_bankroll_comparison.py` — generates the two plots above via matplotlib (added as a
+  dependency specifically for this part).
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_bankroll.py -v
+```
+
+Regenerate the plots:
+
+```bash
+PYTHONPATH=. python3 scripts/plot_bankroll_comparison.py
 ```

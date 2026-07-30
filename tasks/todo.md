@@ -8,7 +8,7 @@
 - [x] Part 3: Monte Carlo Equity Calculator
 - [x] Part 4: Expected Value & Pot Odds
 - [x] Part 5: The Kelly Criterion
-- [ ] Part 6: Bankroll Simulator
+- [x] Part 6: Bankroll Simulator
 - [ ] Part 7: Simple AI Opponents
 - [ ] Part 8: Backend API (FastAPI)
 - [ ] Part 9: Authentication & Security
