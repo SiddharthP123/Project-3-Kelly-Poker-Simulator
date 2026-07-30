@@ -1,0 +1,31 @@
+# Local hooks only -- this repo mixes a Python backend/engine with a JS
+# frontend, so plain `language: system` commands (rather than pre-commit's
+# usual per-language sandboxing) keep this simple: each hook just runs the
+# same command a developer would run by hand.
+#
+# One-time setup after cloning:
+#   source venv/bin/activate && pip install -r requirements.txt
+#   pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (poker engine + backend)
+        entry: bash -c 'source venv/bin/activate && pytest -q'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: frontend-lint
+        name: oxlint (frontend)
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: frontend-tests
+        name: vitest (frontend)
+        entry: bash -c 'cd frontend && npm run test'
+        language: system
+        pass_filenames: false
+        always_run: true

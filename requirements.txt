@@ -11,4 +11,10 @@ httpx==0.28.1
 slowapi==0.1.10
 bcrypt==5.0.0
 pyjwt==2.13.0
+# Required by Pydantic's EmailStr (used in schemas/auth.py) -- Pydantic
+# only imports this lazily, so schemas using EmailStr raise at class
+# definition time without it installed.
 email-validator==2.3.0
+
+# Dev tooling
+pre-commit==4.6.1

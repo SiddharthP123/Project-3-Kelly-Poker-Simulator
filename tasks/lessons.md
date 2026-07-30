@@ -57,3 +57,28 @@
   `frontend/src/components/dashboard/bankroll-growth-chart.jsx` -- and any future chart using a
   shadcn preset's `--chart-N` tokens should verify the actual rendered color, not assume the token
   name implies a sensible visible color.
+
+---
+
+- **Date:** 2026-07-30
+- **Mistake:** A full audit against this project's own `CLAUDE-CODE-INSTRUCTIONS.md` (requested
+  after Part 10, covering every section, not just security) found process gaps that had been
+  accumulating silently across all 10 parts: every commit went straight to `main` with no
+  branches/PRs ever used; `tasks/todo.md` never got the "Review section" the workflow calls for
+  after each part; `email-validator` (Part 9) was added without ever being flagged or documented
+  anywhere, unlike every other dependency in the project; `oxlint` was defined in
+  `frontend/package.json` but nothing ever actually ran it (no hook, no CI).
+- **Correction:** Added `.pre-commit-config.yaml` (pytest + oxlint + vitest, installed via
+  `pre-commit install`) so lint/tests are enforced locally before every commit; documented
+  `email-validator` in `requirements.txt`; added the missing review section to `tasks/todo.md`
+  retroactively; agreed to use feature branches + PRs from Part 11 onward instead of committing
+  straight to `main`.
+- **Lesson:** Following a governing instructions file well on the *content* dimensions (tests,
+  docs, security, code quality) doesn't guarantee the *process* dimensions (branching, dependency
+  sign-off paper trail, review checkpoints) are being followed too -- they're easy to silently
+  drop since nothing breaks when they're skipped, unlike a failing test. A standing instructions
+  file needs an occasional full pass, not just a security-focused one, to catch this category of
+  drift.
+- **Applied To:** Git workflow starting Part 11; `.pre-commit-config.yaml`; any future new
+  dependency should get an explicit one-line justification in the commit message or a code
+  comment, not just quietly added to `requirements.txt`/`package.json`.

@@ -49,6 +49,13 @@ pip install -r requirements.txt
 pytest
 ```
 
+One-time, to enable local pre-commit checks (pytest + frontend lint/tests before every commit,
+see `.pre-commit-config.yaml`):
+
+```bash
+pre-commit install
+```
+
 ---
 
 ## Part 1: Cards, Deck & Dealing
