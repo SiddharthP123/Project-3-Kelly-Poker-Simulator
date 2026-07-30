@@ -36,7 +36,7 @@ solid and tested before any API or UI is built on top of it.
 | 6 | Bankroll Simulator | ✅ Done |
 | 7 | Simple AI Opponents | ✅ Done |
 | 8 | Backend API (FastAPI) | ✅ Done |
-| 9 | Authentication & Security | ⬜ Not started |
+| 9 | Authentication & Security | ✅ Done |
 | 10 | Frontend (React) | ⬜ Not started |
 | 11 | Deployment | ⬜ Not started |
 
@@ -343,4 +343,55 @@ Run just this part's tests (no Docker/Postgres needed):
 
 ```bash
 pytest tests/backend/ -v
+```
+
+---
+
+## Part 9: Authentication & Security
+
+**Key insight:** JWTs are stateless — the server never stores issued tokens anywhere; it just
+verifies the signature and expiry on each request. That's what makes `get_current_user` a single
+fast dependency with no database round trip needed to validate the token itself (only to load the
+user row it names). The whole auth layer is really just two small pieces bolted onto what Part 8
+already built: `backend/security.py` (hash/verify passwords with bcrypt, issue/decode JWTs) and one
+`Depends(get_current_user)` added to every `/api/game/sessions/*` endpoint.
+
+Two security details worth calling out explicitly:
+- **Login failures are indistinguishable.** An unknown email and a correct email with the wrong
+  password both return the exact same 401 + generic message — separating them would let an
+  attacker enumerate which emails have accounts.
+- **A session belonging to someone else 404s, not 403s.** Returning 403 would confirm the session
+  ID is real; 404 (session not found, full stop) leaks nothing about what exists behind the
+  ownership check, matching the project's standing "verify ownership before allowing
+  modifications" convention.
+
+Auth endpoints (`/api/auth/signup`, `/api/auth/login`) get their own tight rate-limit bucket
+(5/15min) — separate from the general reads/writes buckets — since credential endpoints are the
+classic brute-force target. `User.starting_bankroll` (added in Part 8, unused until now) gets its
+first real use: creating a game session without specifying `starting_bankroll` falls back to the
+signed-up user's own default.
+
+One real bug surfaced and fixed while testing this: the `slowapi` rate limiter is a
+process-wide singleton, so without resetting it between tests, exhausting the 5/15min auth bucket
+in one test starved every later test hitting the same endpoint (all `TestClient` requests share a
+fake IP). Fixed with an `autouse` `reset_rate_limiter` fixture in `tests/backend/conftest.py`.
+
+- `backend/security.py` — `hash_password`/`verify_password` (bcrypt), `create_access_token`/
+  `get_current_user` (PyJWT, `HS256`, configurable expiry).
+- `backend/routers/auth.py` — `POST /api/auth/signup` (creates the user, returns a token
+  immediately), `POST /api/auth/login`, `GET /api/auth/me`.
+- `backend/routers/game.py` — every endpoint now requires `Depends(get_current_user)`;
+  `_get_owned_session_or_404` enforces the ownership check described above.
+- Chose **bcrypt + PyJWT** over the brief's originally-named passlib/python-jose (both showing
+  their age maintenance-wise) and confirmed **login is required** for game sessions (not
+  optional/anonymous) with the project owner before implementation.
+
+Smoke-tested end-to-end against the real Postgres container (not just SQLite tests): signup →
+`/me` → create session (defaulting bankroll correctly) → play a hand → a second user gets a clean
+404 trying to touch the first user's session → login with correct/wrong credentials.
+
+Run just this part's tests (no Docker/Postgres needed):
+
+```bash
+pytest tests/backend/test_auth_router.py -v
 ```

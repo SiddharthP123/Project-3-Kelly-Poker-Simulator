@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 
 from backend.config import settings
 from backend.rate_limit import limiter
-from backend.routers import bots, equity, ev, game, hand_evaluator, health, kelly
+from backend.routers import auth, bots, equity, ev, game, hand_evaluator, health, kelly
 
 app = FastAPI(title='Kelly Poker Simulator API')
 app.state.limiter = limiter
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(auth.router, prefix='/api')
 app.include_router(equity.router, prefix='/api')
 app.include_router(ev.router, prefix='/api')
 app.include_router(kelly.router, prefix='/api')

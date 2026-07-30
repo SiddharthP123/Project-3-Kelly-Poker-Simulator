@@ -11,7 +11,7 @@
 - [x] Part 6: Bankroll Simulator
 - [x] Part 7: Simple AI Opponents
 - [x] Part 8: Backend API (FastAPI)
-- [ ] Part 9: Authentication & Security
+- [x] Part 9: Authentication & Security
 - [ ] Part 10: Frontend (React)
 - [ ] Part 11: Deployment
 

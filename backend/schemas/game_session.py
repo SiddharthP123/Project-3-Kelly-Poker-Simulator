@@ -9,7 +9,9 @@ BotPersona = Literal['tight-aggressive', 'loose-passive', 'random', 'kelly-optim
 
 
 class CreateGameSessionRequest(ApiModel):
-    starting_bankroll: float = Field(default=1000.0, gt=0)
+    # None means "use this user's own starting_bankroll default" (set at
+    # signup) -- the first thing that field is actually used for.
+    starting_bankroll: float | None = Field(default=None, gt=0)
     bot_persona: BotPersona
     kelly_multiplier: float | None = Field(default=None, ge=0)
 
