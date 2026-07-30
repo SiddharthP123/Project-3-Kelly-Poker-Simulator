@@ -12,7 +12,7 @@
 - [x] Part 7: Simple AI Opponents
 - [x] Part 8: Backend API (FastAPI)
 - [x] Part 9: Authentication & Security
-- [ ] Part 10: Frontend (React)
+- [x] Part 10: Frontend (React)
 - [ ] Part 11: Deployment
 
 ## Completed:

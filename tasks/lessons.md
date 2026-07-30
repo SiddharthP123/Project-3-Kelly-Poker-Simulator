@@ -34,3 +34,26 @@
   actually needs (usually nothing) before assuming Python package conventions apply the same way
   inside `tests/`.
 - **Applied To:** Any new subdirectory under `tests/` in this project.
+
+---
+
+- **Date:** 2026-07-30
+- **Mistake:** Two Part 10 frontend bugs shipped past 28 passing unit tests and only surfaced
+  during manual browser testing: (1) `ActionControls` pre-filled the raise input with the raw
+  Kelly-recommended stake, which can legitimately be *below* the minimum valid raise (that's
+  exactly the "call, don't raise" zone) -- so the suggested default was sometimes a guaranteed-invalid
+  number. (2) `BankrollGrowthChart` used the shadcn theme's `--chart-1` token for its line color,
+  which for the Nova preset is a near-white grayscale value (that palette is monochrome, meant for
+  multi-series charts) -- the line was nearly invisible against a white background.
+- **Correction:** Floored the raise suggestion at `betToCall + 1`; replaced the theme token with an
+  explicit, deliberately visible color (`#2a78d6`/`#3987e5`) for the single-line chart.
+- **Lesson:** Component unit tests with mocked data verify *logic*, not *appearance* or
+  *real-world value ranges* -- a test can pass with `suggestedRaiseAmount=250` (comfortably valid)
+  while the actual API returns `13.50` in a real scenario, and a snapshot test wouldn't catch a
+  color that resolves but is visually wrong. Manually driving the actual app end-to-end with real
+  data (not just running the test suite) is what caught both -- worth doing before considering a
+  UI part done, especially for anything involving theme tokens or derived numeric ranges.
+- **Applied To:** `frontend/src/components/poker/action-controls.jsx`,
+  `frontend/src/components/dashboard/bankroll-growth-chart.jsx` -- and any future chart using a
+  shadcn preset's `--chart-N` tokens should verify the actual rendered color, not assume the token
+  name implies a sensible visible color.

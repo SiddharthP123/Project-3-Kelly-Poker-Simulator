@@ -37,7 +37,7 @@ solid and tested before any API or UI is built on top of it.
 | 7 | Simple AI Opponents | ✅ Done |
 | 8 | Backend API (FastAPI) | ✅ Done |
 | 9 | Authentication & Security | ✅ Done |
-| 10 | Frontend (React) | ⬜ Not started |
+| 10 | Frontend (React) | ✅ Done |
 | 11 | Deployment | ⬜ Not started |
 
 ## Setup
@@ -438,4 +438,101 @@ Run just the hardening tests:
 
 ```bash
 pytest tests/backend/test_security_hardening.py -v
+```
+
+---
+
+## Part 10: Frontend (React)
+
+**Key insight:** the backend built in Parts 8-9 couldn't actually be *played* yet — `play_hand`
+auto-decided hero's fold/call/raise with a hardcoded `KellyOptimalBot`, because there was no UI to
+ask a real human. The brief's "poker table UI to play hands **against** the AI opponents" meant a
+real person had to make the decision, which meant a backend change was needed before any frontend
+code: `services/game_engine.py::play_hand` was split into `deal_hand` (deals hero's cards, computes
+equity and the live Kelly-recommended stake, returns them, hand stays *pending*) and `resolve_hand`
+(takes the human's real fold/call/raise decision and settles it — everything downstream of that
+point is unchanged from Part 8/9's logic). Two new **internal-only** columns
+(`dealt_board_cards`, `dealt_opponent_hole_cards` on `HandHistory`) remember what was actually
+dealt across the two separate HTTP requests this now takes; they're never declared in
+`HandHistoryResponse`, so the secret state a human hasn't earned the right to see yet (by calling
+or raising) is structurally unreachable through the API, not just policy-hidden.
+
+`GET /api/game/sessions/{id}/hands/pending` lets the frontend recover a hand-in-progress after a
+page refresh — verified live: refreshing mid-decision reloads the exact same hole cards and
+equity rather than losing the hand or silently redealing.
+
+### Stack
+
+Plain React (not Next.js — the brief's explicit choice for this project) + Vite + JavaScript +
+Tailwind CSS v4 + shadcn/ui (Radix base, Nova preset) + `react-router-dom` + Recharts (via
+shadcn's `chart.jsx` wrapper) + Vitest + React Testing Library — matching the standing
+conventions in `CODING-PREFERENCES.md` wherever they're stack-agnostic (kebab-case files,
+`cn()`, functional components, hooks in `hooks/`) and translating the Next.js-specific ones
+(ESLint's `next/core-web-vitals` → the Vite-appropriate plugin set; modern `npm create vite`
+scaffolds now ship `oxlint`, a faster Rust-based linter, in place of ESLint by default — kept as
+scaffolded rather than fighting current tooling).
+
+### What's built
+
+- **Auth** — `lib/api-client.js` (fetch-based, no axios; handles 401 → clear token + redirect,
+  422 → flattens FastAPI's validation error shape, 429 → surfaces the `Retry-After` header from
+  Part 9's hardening pass), `context/auth-context.jsx` + `hooks/use-auth.js`, login/signup pages,
+  `ProtectedRoute`.
+- **Lobby & session setup** — there's no "list my sessions" backend endpoint (never needed one
+  before Part 10), so resuming a session is done client-side: the last-created session id is
+  remembered in `localStorage` and checked against `GET /sessions/{id}` on load — same-browser
+  only, but avoids expanding backend scope just for this.
+- **Interactive poker table** (`components/poker/poker-table.jsx`) — a 3-stage state machine
+  (idle → dealt/awaiting decision → resolved) driven by the pending-hand endpoint. The
+  Kelly-recommended stake is shown live next to the equity it's derived from; the raise input is
+  pre-filled with that suggestion **floored at the minimum valid raise** — a real bug caught during
+  manual browser testing, since Kelly can legitimately recommend staking *less* than a call
+  (exactly the "call, don't raise" zone), which had been pre-filling the raise field with a
+  guaranteed-invalid number.
+- **Dashboard** — bankroll growth chart, win-rate KPI tiles + stacked bar, hand history table. Ran
+  the `dataviz` skill before building these: the bankroll line uses one consistent color (never
+  diverging red/green by magnitude — the signed delta lives in a separate stat tile instead), and
+  win/loss/split/fold use status tokens (green/red/neutral/amber) rather than arbitrary
+  categorical hues, since they mean good/bad/neutral outcomes, not unordered categories.
+  **Also caught live**: the shadcn Nova preset's `--chart-1` token is a near-white grayscale value
+  (this preset's chart palette is monochrome by design, meant for multi-series charts) — using it
+  for a single highlighted line made the bankroll chart nearly invisible. Fixed with an explicit
+  visible blue (`#2a78d6` light / `#3987e5` dark) instead of the theme token.
+
+### Testing
+
+Vitest + React Testing Library, no Playwright/E2E yet (deferred to Part 11, once there's a real
+deployed URL to point it at rather than orchestrating two local dev servers just for this part).
+28 tests: the API client's auth/401/422/429 handling, the auth context, protected-route
+redirects, the poker table's full state-machine transitions against a mocked API client, action
+validation, and the two pure aggregation functions (`compute-win-rate.js`,
+`compute-bankroll-series.js`) tested directly rather than only through chart components (Recharts'
+SVG output is brittle to assert against under jsdom — the logic that can actually be wrong is
+tested directly instead).
+
+One environment quirk worth noting: this Node version ships a native (but non-functional without
+a backing file) `localStorage` global that shadows jsdom's own implementation, breaking any test
+that touches `localStorage`. Fixed by passing `NODE_OPTIONS="--localstorage-file=..."` in the
+`test` npm script.
+
+Smoke-tested end-to-end in a real browser against the live Postgres-backed API: signup → create
+session → deal a hand → fold (bankroll unchanged, cards hidden) → deal again → call → showdown
+(board + opponent cards revealed, bankroll updated correctly) → dashboard showing accurate win
+rate and a correctly-colored bankroll growth line.
+
+Run just this part's tests:
+
+```bash
+cd frontend
+npm run test
+```
+
+Run the frontend locally (with the backend already running per Part 8's setup):
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+# Visit http://localhost:3000
 ```
