@@ -34,7 +34,7 @@ solid and tested before any API or UI is built on top of it.
 | 4 | Expected Value & Pot Odds | ✅ Done |
 | 5 | The Kelly Criterion | ✅ Done |
 | 6 | Bankroll Simulator | ✅ Done |
-| 7 | Simple AI Opponents | ⬜ Not started |
+| 7 | Simple AI Opponents | ✅ Done |
 | 8 | Backend API (FastAPI) | ⬜ Not started |
 | 9 | Authentication & Security | ⬜ Not started |
 | 10 | Frontend (React) | ⬜ Not started |
@@ -245,4 +245,35 @@ Regenerate the plots:
 
 ```bash
 PYTHONPATH=. python3 scripts/plot_bankroll_comparison.py
+```
+
+---
+
+## Part 7: Simple AI Opponents
+
+**Key insight:** every persona differs only in *which numbers* it uses to turn the same equity
+estimate into a decision — the fold/call/raise vocabulary, and the "never raise more than your
+bankroll" rule, are shared by all of them. `TightAggressiveBot` and `LoosePassiveBot` are the same
+`ThresholdBot` logic (fold below one equity bar, raise above another, call in between) with
+different constants plugged in — tight-aggressive folds most hands but raises big with the few it
+plays; loose-passive ("calling station") folds almost nothing but rarely raises even with a
+monster. `RandomBot` ignores equity entirely, as a control/baseline the smarter personas can be
+judged against.
+
+`KellyOptimalBot` is the "textbook" persona, sizing every decision straight from Part 5's Kelly
+Criterion instead of fixed heuristics — and it doesn't need to separately re-run Part 4's pot-odds
+check to decide whether to fold. Kelly's numerator (`p·b − q`) is positive exactly when calling is
++EV under pot odds, because Part 4's breakeven equity (`bet / (pot + bet)`) and Kelly's "no edge"
+point (`1 / (b + 1)`, where `b = pot/bet`) are algebraically the same number. So for this bot,
+"Kelly recommends staking nothing" and "folding is correct" are one condition, not two — Parts 3,
+4, and 5 collapse into a single Kelly-stake calculation.
+
+- `poker/bots.py` — `Action` (fold/call/raise + amount), `Bot` base class (bankroll-capping +
+  `decide_from_hand`, which runs Part 3's real Monte Carlo equity calculator end-to-end),
+  `ThresholdBot` → `TightAggressiveBot` / `LoosePassiveBot`, `RandomBot`, `KellyOptimalBot`.
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_bots.py -v
 ```
