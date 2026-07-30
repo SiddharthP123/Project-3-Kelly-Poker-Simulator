@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.rate_limit import READS_LIMIT, limiter
 from backend.schemas.equity import EquityRequest, EquityResponse
@@ -10,7 +10,7 @@ router = APIRouter(tags=['equity'])
 
 @router.post('/equity', response_model=EquityResponse)
 @limiter.limit(READS_LIMIT)
-def compute_equity(request: Request, body: EquityRequest):
+def compute_equity(request: Request, response: Response, body: EquityRequest):
     hole_cards = parse_cards(body.hole_cards)
     board = tuple(parse_cards(body.board))
 

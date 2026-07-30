@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.rate_limit import READS_LIMIT, limiter
 from backend.schemas.ev import EvRequest, EvResponse
@@ -9,7 +9,7 @@ router = APIRouter(tags=['ev'])
 
 @router.post('/ev', response_model=EvResponse)
 @limiter.limit(READS_LIMIT)
-def compute_best_action(request: Request, body: EvRequest):
+def compute_best_action(request: Request, response: Response, body: EvRequest):
     # best_action itself raises ValueError if only one of raise_amount /
     # fold_probability is given -- no need to duplicate that check here.
     try:

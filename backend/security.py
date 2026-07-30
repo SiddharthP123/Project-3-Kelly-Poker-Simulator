@@ -12,6 +12,7 @@ just verifies the signature and expiry on each request. That's what makes
 needed to validate the token itself (only to load the user row it names).
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -24,6 +25,7 @@ from backend.config import settings
 from backend.database import get_db
 from backend.models import User
 
+logger = logging.getLogger(__name__)
 _bearer_scheme = HTTPBearer()
 
 
@@ -52,6 +54,10 @@ def _decode_user_id(token: str) -> int:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         return int(payload['sub'])
     except (jwt.PyJWTError, KeyError, ValueError) as error:
+        # Security: log that a bad token was presented, but never the
+        # token itself -- a leaked log is a much smaller problem if it
+        # never contained anything an attacker could replay.
+        logger.warning('Rejected invalid or expired access token: %s', type(error).__name__)
         raise HTTPException(status_code=401, detail='Invalid or expired token') from error
 
 

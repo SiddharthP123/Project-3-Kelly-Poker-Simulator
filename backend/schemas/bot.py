@@ -9,7 +9,9 @@ from backend.schemas.card import CardStr
 class BotDecideRequest(ApiModel):
     persona: Literal['tight-aggressive', 'loose-passive', 'random', 'kelly-optimal']
     hole_cards: list[CardStr] = Field(min_length=2, max_length=2)
-    board: list[CardStr] = Field(default_factory=list)
+    # A board is never more than 5 community cards -- capped at the schema
+    # layer, not just inside the equity calculator's own validation.
+    board: list[CardStr] = Field(default_factory=list, max_length=5)
     pot_size: float = Field(ge=0)
     bet_to_call: float = Field(gt=0)
     num_opponents: int = Field(default=1, ge=1, le=9)

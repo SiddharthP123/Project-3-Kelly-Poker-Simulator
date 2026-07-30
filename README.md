@@ -395,3 +395,47 @@ Run just this part's tests (no Docker/Postgres needed):
 ```bash
 pytest tests/backend/test_auth_router.py -v
 ```
+
+### Security hardening pass
+
+Before moving on to Part 10, the backend was audited against every item in this project's
+standing `CLAUDE-CODE-INSTRUCTIONS.md` security checklist (translating Firebase/Next.js-specific
+items to their FastAPI/Postgres equivalents). Already-compliant: no raw SQL anywhere (ORM-only),
+no hardcoded real secrets, debug mode off, strict schema validation (`extra='forbid'`) everywhere,
+rate-limit buckets on every endpoint except `/health` (intentionally unthrottled — a trivial,
+no-DB liveness check). Five real gaps were found and fixed:
+
+- **`Retry-After` was missing from 429 responses** — `slowapi`'s `Limiter` needed
+  `headers_enabled=True` explicitly. That setting has a real consequence: slowapi then tries to
+  inject rate-limit headers into *every* response, success or not, which requires each rate-limited
+  endpoint to accept a `response: Response` parameter (FastAPI's mutable response object) — added
+  to all 16 rate-limited routes.
+- **No per-user rate limiting** — only IP-based existed. Added `USER_HOURLY_LIMIT` (1000/hour),
+  stacked on top of (not instead of) the existing IP-based limits on every `/api/game/sessions/*`
+  route, keyed by `user_id_or_ip_key` (decodes the bearer token to key by user id when present,
+  falling back to IP otherwise). This protects against a single compromised/shared token being
+  used across many different source IPs — a threat IP-based limiting alone can't see.
+- **No security response headers at all** — added `backend/middleware.py`
+  (`SecurityHeadersMiddleware`): `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, `X-XSS-Protection`, `Content-Security-Policy: default-src 'none'` (this API
+  only ever returns JSON), and `Strict-Transport-Security` (harmless over local HTTP, takes effect
+  once deployed over HTTPS in Part 11).
+- **Three unbounded list fields** — `EquityRequest.board` / `BotDecideRequest.board` had no
+  `max_length` (a board is never more than 5 cards), and `CompareHandsRequest.hands` had no cap on
+  either the number of hands *or* cards per hand. All three now enforce the same bounds
+  `poker/`'s own functions expect, rejecting oversized input at the schema layer (422) instead of
+  after partial validation work.
+- **Zero logging anywhere** — failed logins vanished silently. Added stdlib `logging` (no new
+  dependency): failed login attempts and duplicate-signup attempts log the email + IP (never the
+  password), rejected tokens log the failure type (never the token itself), and rate-limit
+  breaches log the IP + path.
+
+Re-verified end-to-end against the real Postgres container after the fixes: security headers
+present on a live response, gameplay still works unaffected, oversized input still 422s, and a
+6th rapid login attempt returns a real `Retry-After` value.
+
+Run just the hardening tests:
+
+```bash
+pytest tests/backend/test_security_hardening.py -v
+```

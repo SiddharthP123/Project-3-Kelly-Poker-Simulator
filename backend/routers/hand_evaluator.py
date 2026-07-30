@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.rate_limit import READS_LIMIT, limiter
 from backend.schemas.hand_evaluator import (
@@ -15,7 +15,7 @@ router = APIRouter(tags=['hand-evaluator'])
 
 @router.post('/hand-evaluator/best-hand', response_model=BestHandResponse)
 @limiter.limit(READS_LIMIT)
-def compute_best_hand(request: Request, body: BestHandRequest):
+def compute_best_hand(request: Request, response: Response, body: BestHandRequest):
     cards = parse_cards(body.cards)
 
     try:
@@ -32,7 +32,7 @@ def compute_best_hand(request: Request, body: BestHandRequest):
 
 @router.post('/hand-evaluator/compare', response_model=CompareHandsResponse)
 @limiter.limit(READS_LIMIT)
-def compute_compare_hands(request: Request, body: CompareHandsRequest):
+def compute_compare_hands(request: Request, response: Response, body: CompareHandsRequest):
     hands = [parse_cards(hand) for hand in body.hands]
 
     try:

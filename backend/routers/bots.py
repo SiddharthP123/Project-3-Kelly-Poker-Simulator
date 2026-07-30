@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.rate_limit import READS_LIMIT, limiter
 from backend.schemas.bot import BotDecideRequest, BotDecideResponse
@@ -10,7 +10,7 @@ router = APIRouter(tags=['bots'])
 
 @router.post('/bots/decide', response_model=BotDecideResponse)
 @limiter.limit(READS_LIMIT)
-def bot_decide(request: Request, body: BotDecideRequest):
+def bot_decide(request: Request, response: Response, body: BotDecideRequest):
     bot = PERSONAS[body.persona]()
     hole_cards = parse_cards(body.hole_cards)
     board = tuple(parse_cards(body.board))

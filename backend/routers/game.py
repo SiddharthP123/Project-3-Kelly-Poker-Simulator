@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import BankrollLog, GameSession, HandHistory, User
-from backend.rate_limit import READS_LIMIT, WRITES_LIMIT, limiter
+from backend.rate_limit import READS_LIMIT, USER_HOURLY_LIMIT, WRITES_LIMIT, limiter, user_id_or_ip_key
 from backend.schemas.game_session import (
     BankrollHistoryPoint,
     CreateGameSessionRequest,
@@ -28,10 +28,19 @@ def _get_owned_session_or_404(session_id: int, current_user: User, db: Session) 
     return session
 
 
+# Every route below stacks two independent rate limits: the general
+# IP-based bucket (READS_LIMIT/WRITES_LIMIT) plus USER_HOURLY_LIMIT keyed
+# by the authenticated user's id -- see backend/rate_limit.py for why both
+# layers matter. Both decorators are on the OUTER function; slowapi checks
+# all stacked limits before the handler body runs, and a request is
+# rejected if it exceeds any one of them.
+
+
 @router.post('', response_model=GameSessionResponse)
 @limiter.limit(WRITES_LIMIT)
+@limiter.limit(USER_HOURLY_LIMIT, key_func=user_id_or_ip_key)
 def create_game_session(
-    request: Request, body: CreateGameSessionRequest,
+    request: Request, response: Response, body: CreateGameSessionRequest,
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     starting_bankroll = body.starting_bankroll or current_user.starting_bankroll
@@ -55,8 +64,9 @@ def create_game_session(
 
 @router.get('/{session_id}', response_model=GameSessionResponse)
 @limiter.limit(READS_LIMIT)
+@limiter.limit(USER_HOURLY_LIMIT, key_func=user_id_or_ip_key)
 def get_game_session(
-    request: Request, session_id: int,
+    request: Request, response: Response, session_id: int,
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     return _get_owned_session_or_404(session_id, current_user, db)
@@ -64,8 +74,9 @@ def get_game_session(
 
 @router.post('/{session_id}/hands', response_model=HandHistoryResponse)
 @limiter.limit(WRITES_LIMIT)
+@limiter.limit(USER_HOURLY_LIMIT, key_func=user_id_or_ip_key)
 def play_next_hand(
-    request: Request, session_id: int, body: PlayHandRequest = PlayHandRequest(),
+    request: Request, response: Response, session_id: int, body: PlayHandRequest = PlayHandRequest(),
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     session = _get_owned_session_or_404(session_id, current_user, db)
@@ -77,8 +88,9 @@ def play_next_hand(
 
 @router.get('/{session_id}/hands', response_model=list[HandHistoryResponse])
 @limiter.limit(READS_LIMIT)
+@limiter.limit(USER_HOURLY_LIMIT, key_func=user_id_or_ip_key)
 def list_hand_history(
-    request: Request, session_id: int, limit: int = 50, offset: int = 0,
+    request: Request, response: Response, session_id: int, limit: int = 50, offset: int = 0,
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     _get_owned_session_or_404(session_id, current_user, db)
@@ -94,8 +106,9 @@ def list_hand_history(
 
 @router.get('/{session_id}/bankroll-history', response_model=list[BankrollHistoryPoint])
 @limiter.limit(READS_LIMIT)
+@limiter.limit(USER_HOURLY_LIMIT, key_func=user_id_or_ip_key)
 def get_bankroll_history(
-    request: Request, session_id: int,
+    request: Request, response: Response, session_id: int,
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     _get_owned_session_or_404(session_id, current_user, db)
@@ -109,8 +122,9 @@ def get_bankroll_history(
 
 @router.post('/{session_id}/end', response_model=GameSessionResponse)
 @limiter.limit(WRITES_LIMIT)
+@limiter.limit(USER_HOURLY_LIMIT, key_func=user_id_or_ip_key)
 def end_game_session(
-    request: Request, session_id: int,
+    request: Request, response: Response, session_id: int,
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     session = _get_owned_session_or_404(session_id, current_user, db)
