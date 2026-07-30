@@ -1,2 +1,11 @@
 pytest==8.3.4
 matplotlib==3.9.2
+
+# Part 8: backend API
+fastapi==0.141.1
+uvicorn[standard]==0.52.0
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
+pydantic-settings==2.14.2
+httpx==0.28.1
+slowapi==0.1.10

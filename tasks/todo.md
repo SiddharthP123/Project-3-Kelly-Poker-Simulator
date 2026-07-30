@@ -10,7 +10,7 @@
 - [x] Part 5: The Kelly Criterion
 - [x] Part 6: Bankroll Simulator
 - [x] Part 7: Simple AI Opponents
-- [ ] Part 8: Backend API (FastAPI)
+- [x] Part 8: Backend API (FastAPI)
 - [ ] Part 9: Authentication & Security
 - [ ] Part 10: Frontend (React)
 - [ ] Part 11: Deployment

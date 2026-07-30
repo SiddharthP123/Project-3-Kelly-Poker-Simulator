@@ -35,7 +35,7 @@ solid and tested before any API or UI is built on top of it.
 | 5 | The Kelly Criterion | ✅ Done |
 | 6 | Bankroll Simulator | ✅ Done |
 | 7 | Simple AI Opponents | ✅ Done |
-| 8 | Backend API (FastAPI) | ⬜ Not started |
+| 8 | Backend API (FastAPI) | ✅ Done |
 | 9 | Authentication & Security | ⬜ Not started |
 | 10 | Frontend (React) | ⬜ Not started |
 | 11 | Deployment | ⬜ Not started |
@@ -276,4 +276,71 @@ Run just this part's tests:
 
 ```bash
 pytest tests/test_bots.py -v
+```
+
+---
+
+## Part 8: Backend API (FastAPI)
+
+**Key insight:** turning the engine into a service is mostly about translation, not new logic —
+every "calculator" endpoint (`/api/equity`, `/api/ev`, `/api/kelly/*`, `/api/hand-evaluator/*`,
+`/api/bots/decide`) is a thin Pydantic-schema-in → `poker/` function call → Pydantic-schema-out
+wrapper. The one genuinely new piece is `services/game_engine.py::play_hand`, which settles a
+real hand's outcome by feeding the *realized* result (win = 1, n-way split = 1/n, loss = 0) back
+into Part 4's `ev_call` formula — the exact same call-EV math used for decision-making now
+computes the actual bankroll change too, so no separate settlement formula was needed.
+
+Hero is auto-played by a fixed `KellyOptimalBot` in this part — there's no interactive UI yet for
+a human to submit a decision from (that's Part 10). `GameSession.bot_persona` is the actual named
+opponent. A hand is a single fixed-stakes decision (pot-sized bet, 1:1 odds, 50% breakeven) rather
+than a full multi-street betting engine — enough to prove deal → decide → showdown → persist
+end-to-end without building a complete rules engine this part doesn't need yet.
+
+`backend/` is a new top-level package, sibling to `poker/` (never nested inside it — `poker/`
+stays a framework-agnostic library `backend/` imports from, never the reverse):
+
+- `backend/models/` — SQLAlchemy models: `User` (minimal, `user_id` is nullable everywhere until
+  Part 9 adds real auth), `GameSession`, `HandHistory` (one row per hand; `opponent_hole_cards`
+  is only ever populated at showdown — a folded opponent's cards are never revealed, matching real
+  poker), `BankrollLog` (a dedicated append-only time series, separate from `HandHistory`
+  specifically so a Part-6-style growth chart is a plain ordered `SELECT`, not an aggregation
+  query).
+- `backend/routers/` + `backend/schemas/` — the calculator endpoints above, plus the stateful
+  `/api/game/sessions/*` endpoints (create session, play a hand, list hand history, fetch bankroll
+  history, end session). Every request schema inherits `extra='forbid'` (the Pydantic/Zod-strict
+  equivalent), and card strings are validated through `Card.from_str` at the schema layer so bad
+  notation 422s cleanly instead of 500ing inside `poker/`.
+- Rate limiting via `slowapi`: calculator endpoints (compute-only, even though POST) get a
+  100/15min "reads" bucket; `/api/game/sessions/*` writes get 50/15min — IP-based only until
+  Part 9 has a JWT to key per-user limits off.
+- **Testing runs entirely on SQLite** (`tests/backend/conftest.py` overrides FastAPI's `get_db`
+  dependency with a per-test temp-file database) — no Postgres needs to be running for `pytest` to
+  pass. Real Postgres is only used for actual local dev/run.
+
+Three implementation defaults were set without a full stop to ask, since each is easily revisited
+later without redoing work: **Alembic deferred** in favour of `Base.metadata.create_all()` (no
+production data to protect yet); **`User` rows are optional** in this part (`GameSession.user_id`
+nullable, no user-management endpoint — Part 9 owns signup); and the ORM/schema pairing is plain
+**SQLAlchemy + separate Pydantic schemas** (not SQLModel) and local Postgres runs via **Docker
+Desktop + docker-compose** — both confirmed with the project owner before implementation, since
+they shape a lot of downstream code and neither Docker nor Postgres was already installed on this
+machine.
+
+### Running it locally
+
+```bash
+# One-time: install Docker Desktop (github.com/docker/docker-compose is bundled),
+# then from the project root:
+docker compose up -d          # starts Postgres on localhost:5432
+cp .env.example .env          # fill in real values if you changed docker-compose.yml
+source venv/bin/activate
+PYTHONPATH=. python3 backend/create_tables.py   # stands up the schema (no Alembic yet)
+uvicorn backend.main:app --reload
+# Then visit http://localhost:8000/docs for the interactive Swagger UI.
+```
+
+Run just this part's tests (no Docker/Postgres needed):
+
+```bash
+pytest tests/backend/ -v
 ```
