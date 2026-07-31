@@ -1,0 +1,26 @@
+# The Dockerfile's build context is the repo root, so without this file
+# every `docker build` would drag in frontend/node_modules (huge,
+# irrelevant to the backend image) and other local-only artifacts.
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.egg-info/
+
+# Frontend (deployed separately to Vercel, not part of this image)
+frontend/node_modules/
+frontend/dist/
+
+# Git and local dev artifacts
+.git/
+.github/
+.env
+docs/part-6-plots/
+tasks/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
