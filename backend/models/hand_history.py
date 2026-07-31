@@ -12,6 +12,18 @@ yet acted on has neither. dealt_board_cards/dealt_opponent_hole_cards are
 INTERNAL-ONLY -- never declared in HandHistoryResponse, so the secret
 state dealt at deal-time (which the human hasn't earned the right to see
 yet) is structurally unreachable through the API, not just policy-hidden.
+
+hero_hole_cards/board_cards/opponent_hole_cards/dealt_* above are Parts
+8-11's single-opponent, single-decision columns -- kept as-is (untouched,
+still used by any pre-Part-12 hand rows) rather than dropped, since
+dropping columns is a destructive change out of scope for this additive
+migration. Part 12's multi-opponent hands use the new `players`/`actions`
+relationships below instead, which structurally hold 1-4 seats.
+
+button_seat/street are nullable for the same reason num_opponents is on
+GameSession: they don't exist on rows created before Part 12, and adding
+them to the live table is a manual `ALTER TABLE`, not `create_all()`-safe
+-- see backend/migrations/README.md.
 """
 
 from datetime import datetime, timezone
@@ -50,9 +62,18 @@ class HandHistory(Base):
     winner: Mapped[str | None] = mapped_column(String(10), nullable=True)
     hero_bankroll_delta: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    button_seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    street: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     played_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     game_session: Mapped['GameSession'] = relationship(back_populates='hands')
     bankroll_logs: Mapped[list['BankrollLog']] = relationship(back_populates='hand_history')
+    players: Mapped[list['HandPlayer']] = relationship(
+        back_populates='hand_history', cascade='all, delete-orphan'
+    )
+    actions: Mapped[list['HandAction']] = relationship(
+        back_populates='hand_history', cascade='all, delete-orphan', order_by='HandAction.seq'
+    )

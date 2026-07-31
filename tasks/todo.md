@@ -18,7 +18,7 @@
   - [x] Phase 1: `poker/betting.py` -- betting rounds + side pots, pure Python
   - [x] Phase 2: `poker/hand_flow.py` -- orchestrator (streets, bot turns)
   - [x] Phase 3: expand `poker/bots.py` to 10 personas
-  - [ ] Phase 4: database schema (multi-street/multi-opponent hands)
+  - [x] Phase 4: database schema (multi-street/multi-opponent hands)
   - [ ] Phase 5: backend wiring (`game_engine.py` + `routers/game.py`)
   - [ ] Phase 6: modern animated poker table (frontend)
   - [ ] Phase 7: account-wide statistics page
@@ -102,3 +102,10 @@ despite the workflow calling for it after each part.
   `assign_opponent_personas(num_opponents, rng)` to randomly seat distinct personas. 252 tests
   total (14 new). `backend/services/game_engine.py`'s own persona dict is untouched -- backend
   wiring is Phase 5, not this phase.
+- **Part 12 Phase 4** — new tables `game_session_opponents`/`hand_players`/`hand_actions`, all
+  additive under `create_tables.py`'s existing `create_all()`. `hand_players.hole_cards` always
+  stores real cards for every seat (redaction moves to the response-schema layer in Phase 5,
+  replacing Part 10's hidden-column pattern, which doesn't scale to 5 seats x 4 streets). Also adds
+  4 nullable columns to the *existing* `game_sessions`/`hand_histories` tables -- NOT
+  `create_all()`-safe, needs one manual `ALTER TABLE` against the live Render Postgres before
+  Phase 5 (see `backend/migrations/README.md`), not yet run. 263 tests total (11 new).
