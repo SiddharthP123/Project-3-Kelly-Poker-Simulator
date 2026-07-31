@@ -17,6 +17,18 @@ Fold-outs and real showdowns are resolved by the exact same function
 seat as a trivial one-seat "pot", with no hand comparison needed -- so a
 hand where everyone else folds needs no special-casing, it's just a
 showdown where every pot layer happens to have exactly one eligible seat.
+
+The whole board is dealt once, upfront, in create_hand -- not
+street-by-street as _advance_street reaches each one. This has no effect
+on the game itself (a shuffled deck's outcome is fixed at shuffle time
+either way; revealing cards later doesn't change what they are or any
+probability), but it means HandState never needs to hold a live, mutating
+Deck object past hand creation -- everything needed to reconstruct
+HandState later (e.g. from DB rows, across separate HTTP requests that
+can't share Python object identity) is just plain data: the fixed
+5-card board, dealt hole cards, and the action log. `board` is a slice of
+that fixed board, sized to whatever the current street has revealed so
+far, not a separately-tracked mutable list.
 """
 
 from dataclasses import dataclass, field
@@ -29,6 +41,11 @@ from poker.equity import calculate_equity
 _EPSILON = 1e-6
 
 STREET_ORDER = ['preflop', 'flop', 'turn', 'river']
+
+# How many of the 5 fixed board cards are visible once a given street is
+# reached -- 'complete' shows the same full board 'river' does, showdown
+# doesn't add a 6th card.
+_VISIBLE_BOARD_CARDS = {'preflop': 0, 'flop': 3, 'turn': 4, 'river': 5, 'complete': 5}
 
 # Bot-facing equity calls run far more often than hero-facing ones now (up
 # to 4 bots x 4 streets = up to 16 calls per hand), so they default to a
@@ -46,14 +63,17 @@ class HandState:
     button_seat: int
     small_blind: float
     big_blind: float
-    deck: Deck
     hole_cards: dict          # seat -> [Card, Card]
-    board: list
+    full_board: list          # all 5 community cards, fixed from deal time
     street: str               # 'preflop' | 'flop' | 'turn' | 'river' | 'complete'
     betting_round: object     # BettingRound, or None once street == 'complete'
     action_log: list = field(default_factory=list)
     hand_number: int = 1
     result: dict = None       # populated once street == 'complete'
+
+    @property
+    def board(self):
+        return self.full_board[:_VISIBLE_BOARD_CARDS[self.street]]
 
 
 def create_hand(
@@ -87,6 +107,13 @@ def create_hand(
     dealt_hands = deck.deal_hole_cards(num_seats)
     hole_cards = {seat: dealt_hands[seat] for seat in range(num_seats)}
 
+    # Dealt in the same order/burn pattern _advance_street used to deal it
+    # in (one street at a time): flop's burn+3, then turn's burn+1, then
+    # river's burn+1. Doing it all now rather than as each street is
+    # reached doesn't change which cards come up for a given seed -- see
+    # the module docstring -- it just means nothing later needs the Deck.
+    full_board = deck.deal_community(3, burn=True) + deck.deal_community(1, burn=True) + deck.deal_community(1, burn=True)
+
     stacks = [hero_stack] + list(opponent_stacks)
     players = {seat: PlayerState(seat=seat, stack=stacks[seat]) for seat in range(num_seats)}
     personas_by_seat = {seat + 1: persona for seat, persona in enumerate(personas)}
@@ -111,14 +138,78 @@ def create_hand(
         button_seat=button_seat,
         small_blind=small_blind,
         big_blind=big_blind,
-        deck=deck,
         hole_cards=hole_cards,
-        board=[],
+        full_board=full_board,
         street='preflop',
         betting_round=round_,
         action_log=action_log,
         hand_number=hand_number,
     )
+
+
+def rebuild_hand_state(hero_seat, button_seat, small_blind, big_blind, hand_number, seat_data, full_board, action_log):
+    """Reconstructs a HandState purely from already-persisted plain data --
+    what a caller needs to resume a hand across separate HTTP requests,
+    since a fresh request can't share Python object identity with whatever
+    process handled the previous one. Takes plain dicts/lists rather than
+    ORM objects, so this module stays fully decoupled from any particular
+    storage layer, matching every other poker/ module in this project.
+
+    seat_data: one dict per seat -- {'seat', 'stack' (this hand's STARTING
+        stack, before anything was committed), 'persona' (None for hero),
+        'hole_cards'}.
+    full_board: the fixed 5 community cards dealt at hand creation.
+    action_log: every action taken on this hand so far, in order --
+        {'seq', 'street', 'seat', 'action', 'amount'}. This is exactly a
+        prefix of what create_hand/advance_hand/apply_hero_action would
+        have produced had the hand run continuously in one process --
+        replaying it through the same BettingRound primitives
+        (post_blind/apply) that originally generated it reconstructs an
+        identical BettingRound (current_bet, min-raise, whose turn it is,
+        all of it) with no separate bookkeeping needed. _advance_street is
+        replayed too, exactly whenever the street changes, so a caller can
+        immediately resume with advance_hand/apply_hero_action afterward
+        as if execution had never paused.
+    """
+    num_seats = len(seat_data)
+    players = {s['seat']: PlayerState(seat=s['seat'], stack=s['stack']) for s in seat_data}
+    personas = {s['seat']: s['persona'] for s in seat_data if s['persona'] is not None}
+    hole_cards = {s['seat']: s['hole_cards'] for s in seat_data}
+
+    sb_seat = (button_seat + 1) % num_seats
+    bb_seat = (button_seat + 2) % num_seats
+    first_to_act = (bb_seat + 1) % num_seats
+    order = [(first_to_act + i) % num_seats for i in range(num_seats)]
+
+    state = HandState(
+        players=players,
+        personas=personas,
+        hero_seat=hero_seat,
+        button_seat=button_seat,
+        small_blind=small_blind,
+        big_blind=big_blind,
+        hole_cards=hole_cards,
+        full_board=full_board,
+        street='preflop',
+        betting_round=BettingRound(players.values(), order, current_bet=0.0, min_raise=big_blind, street='preflop'),
+        hand_number=hand_number,
+    )
+
+    for entry in sorted(action_log, key=lambda a: a['seq']):
+        while state.street != entry['street']:
+            _advance_street(state)
+
+        seat, action, amount = entry['seat'], entry['action'], entry['amount']
+        if action == 'post_blind':
+            record = state.betting_round.post_blind(seat, amount)
+        elif action == 'raise_to':
+            raise_to = state.players[seat].committed_street + amount
+            record = state.betting_round.apply(seat, 'raise_to', raise_to=raise_to)
+        else:  # 'fold' or 'match'
+            record = state.betting_round.apply(seat, action)
+        state.action_log.append(record)
+
+    return state
 
 
 def default_bot_action(state, seat, num_simulations=DEFAULT_BOT_NUM_SIMULATIONS):
@@ -187,8 +278,7 @@ def _advance_street(state):
         player.start_new_street()
 
     next_street = STREET_ORDER[STREET_ORDER.index(state.street) + 1]
-    state.street = next_street
-    state.board.extend(state.deck.deal_community(3 if next_street == 'flop' else 1, burn=True))
+    state.street = next_street  # state.board reveals more automatically -- see the property
 
     num_seats = len(state.players)
     first_to_act = (state.button_seat + 1) % num_seats

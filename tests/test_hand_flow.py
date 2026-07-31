@@ -7,6 +7,7 @@ from poker.hand_flow import (
     apply_hero_action,
     create_hand,
     default_bot_action,
+    rebuild_hand_state,
 )
 
 
@@ -348,3 +349,124 @@ def test_full_playthrough_with_real_personas_conserves_chips(seed):
     assert state.result is not None
     assert _total_chips(state) == pytest.approx(total)
     assert sum(state.result['payouts'].values()) > 0
+
+
+# --- rebuild_hand_state ----------------------------------------------------
+
+
+def _extract_persisted_data(state, starting_stacks):
+    """Mimics exactly what a DB layer would have stored so far -- one row
+    per seat (its STARTING stack, not its current one) and the action log
+    in the plain {seq, street, seat, action, amount} shape a real
+    HandAction row would round-trip through."""
+    seat_data = [
+        {
+            'seat': seat, 'stack': starting_stacks[seat],
+            'persona': state.personas.get(seat), 'hole_cards': state.hole_cards[seat],
+        }
+        for seat in sorted(state.players.keys())
+    ]
+    action_log = [
+        {'seq': i, 'street': a.street, 'seat': a.seat, 'action': a.action, 'amount': a.amount}
+        for i, a in enumerate(state.action_log)
+    ]
+    return seat_data, action_log
+
+
+def test_rebuild_hand_state_matches_a_freshly_dealt_hand_before_any_action():
+    original = create_hand(
+        num_opponents=1, hero_stack=200, opponent_stacks=[200],
+        personas=['random'], small_blind=1, big_blind=2, hand_number=1, seed=5,
+    )
+    seat_data, action_log = _extract_persisted_data(original, starting_stacks={0: 200, 1: 200})
+
+    rebuilt = rebuild_hand_state(
+        hero_seat=0, button_seat=original.button_seat, small_blind=1, big_blind=2,
+        hand_number=1, seat_data=seat_data, full_board=original.full_board, action_log=action_log,
+    )
+
+    assert rebuilt.street == original.street == 'preflop'
+    assert rebuilt.betting_round.current_bet == original.betting_round.current_bet
+    assert rebuilt.betting_round.next_to_act() == original.betting_round.next_to_act()
+    for seat in original.players:
+        assert rebuilt.players[seat].stack == original.players[seat].stack
+        assert rebuilt.players[seat].committed_street == original.players[seat].committed_street
+        assert rebuilt.players[seat].committed_total == original.players[seat].committed_total
+    assert rebuilt.hole_cards == original.hole_cards
+    assert rebuilt.board == original.board
+
+
+def test_rebuild_hand_state_resumes_mid_hand_to_an_identical_showdown():
+    starting_stacks = {0: 200, 1: 200, 2: 200}
+
+    def build_and_play_to_flop():
+        state = create_hand(
+            num_opponents=2, hero_stack=200, opponent_stacks=[200, 200],
+            personas=['random', 'random'], small_blind=1, big_blind=2, hand_number=1, seed=42,
+        )
+        state = advance_hand(state, decide_bot_action=_always_match)
+        state = apply_hero_action(state, 'call')
+        state = advance_hand(state, decide_bot_action=_always_match)
+        return state
+
+    # Reference: keep playing the same, never-interrupted state to a finish.
+    reference = build_and_play_to_flop()
+    while reference.street != 'complete':
+        reference = apply_hero_action(reference, 'call')
+        reference = advance_hand(reference, decide_bot_action=_always_match)
+
+    # Now redo it, but "pause" at the exact same midpoint (flop, hero's
+    # turn), extract what a DB would have persisted by then, rebuild a
+    # fresh HandState from only that data, and resume from the rebuild.
+    paused = build_and_play_to_flop()
+    seat_data, action_log = _extract_persisted_data(paused, starting_stacks)
+    resumed = rebuild_hand_state(
+        hero_seat=0, button_seat=paused.button_seat, small_blind=1, big_blind=2,
+        hand_number=1, seat_data=seat_data, full_board=paused.full_board, action_log=action_log,
+    )
+    while resumed.street != 'complete':
+        resumed = apply_hero_action(resumed, 'call')
+        resumed = advance_hand(resumed, decide_bot_action=_always_match)
+
+    assert resumed.result == reference.result
+    assert {s: p.stack for s, p in resumed.players.items()} == {
+        s: p.stack for s, p in reference.players.items()
+    }
+
+
+def test_rebuild_hand_state_reconstructs_across_a_street_boundary_with_no_actions_on_it():
+    # Force an all-in preflop so flop/turn/river close instantly with zero
+    # recorded actions on them -- proves the replay's street-transition
+    # loop (_advance_street called in a `while`, not just once) correctly
+    # cascades through streets a persisted action log can legitimately skip.
+    def stub_shove_then_call(state, seat):
+        bounds = state.betting_round.legal_action_bounds(seat)
+        if state.street == 'preflop' and bounds.can_raise:
+            return 'raise_to', bounds.max_raise_to
+        if bounds.can_check or bounds.can_call:
+            return 'match', None
+        return 'fold', None
+
+    original = create_hand(
+        num_opponents=1, hero_stack=20, opponent_stacks=[20],
+        personas=['random'], small_blind=1, big_blind=2, hand_number=1, seed=11,
+    )
+    original = advance_hand(original, decide_bot_action=stub_shove_then_call)
+    if original.street != 'complete':
+        # Hero's remaining stack exactly covers the call -- there's no
+        # legal "raise" left once it only matches, not exceeds, the bet.
+        original = apply_hero_action(original, 'call')
+        original = advance_hand(original, decide_bot_action=stub_shove_then_call)
+    assert original.street == 'complete'  # both all-in preflop -> instant showdown
+
+    seat_data, action_log = _extract_persisted_data(original, starting_stacks={0: 20, 1: 20})
+    rebuilt = rebuild_hand_state(
+        hero_seat=0, button_seat=original.button_seat, small_blind=1, big_blind=2,
+        hand_number=1, seat_data=seat_data, full_board=original.full_board, action_log=action_log,
+    )
+
+    # The persisted log only ever covers 'preflop' -- rebuild_hand_state
+    # itself doesn't resolve the showdown (that's advance_hand's job on
+    # whatever the caller does next), so it should stop exactly there.
+    assert rebuilt.street == 'preflop'
+    assert rebuilt.board == []

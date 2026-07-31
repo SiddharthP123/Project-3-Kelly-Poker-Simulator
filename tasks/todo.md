@@ -19,7 +19,8 @@
   - [x] Phase 2: `poker/hand_flow.py` -- orchestrator (streets, bot turns)
   - [x] Phase 3: expand `poker/bots.py` to 10 personas
   - [x] Phase 4: database schema (multi-street/multi-opponent hands)
-  - [ ] Phase 5: backend wiring (`game_engine.py` + `routers/game.py`)
+  - [x] Phase 5a: backend wiring, heads-up-focused (`game_engine.py` + `routers/game.py`)
+  - [ ] Phase 5b: multi-way side-pot testing through the API
   - [ ] Phase 6: modern animated poker table (frontend)
   - [ ] Phase 7: account-wide statistics page
   - [ ] Phase 8 (deprioritized): re-polish Kelly-recommended-stake UI
@@ -109,3 +110,15 @@ despite the workflow calling for it after each part.
   4 nullable columns to the *existing* `game_sessions`/`hand_histories` tables -- NOT
   `create_all()`-safe, needs one manual `ALTER TABLE` against the live Render Postgres before
   Phase 5 (see `backend/migrations/README.md`), not yet run. 263 tests total (11 new).
+- **Part 12 Phase 5a** — rewrote `backend/services/game_engine.py` + `backend/routers/game.py` on
+  `poker/hand_flow.py`, replacing the fixed-pot/one-opponent model. Required two small changes to
+  already-merged Phase 1/2 code (re-verified against their full existing suites afterward): the
+  whole board is now dealt upfront (behaviorally identical for a given seed, just removes the need
+  to keep a live `Deck` around across streets), and `BettingAction` now carries `pot_size_after`.
+  Added `poker.hand_flow.rebuild_hand_state` (reconstructs a hand from persisted data by replaying
+  it through the real engine) plus `_load_and_sync_state` in `game_engine.py` -- a real bug was
+  found and fixed here (reconstruction alone can land one `advance_hand` cascade behind reality; see
+  `lessons.md` for the full account, including why only a loop of many real-persona playthroughs,
+  not a stub-bot unit test, surfaced it). 270 tests total (7 new: `pot_size_after`,
+  `rebuild_hand_state` x3, plus the router suite fully rewritten for the new API). Manual migration
+  step against live Render Postgres still not run -- needed before this is usable there.

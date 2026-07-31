@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from poker.bots import PERSONA_REGISTRY
+
 from backend.rate_limit import READS_LIMIT, limiter
 from backend.schemas.bot import BotDecideRequest, BotDecideResponse
 from backend.services.card_parsing import parse_cards
-from backend.services.game_engine import PERSONAS
 
 router = APIRouter(tags=['bots'])
 
@@ -11,7 +12,7 @@ router = APIRouter(tags=['bots'])
 @router.post('/bots/decide', response_model=BotDecideResponse)
 @limiter.limit(READS_LIMIT)
 def bot_decide(request: Request, response: Response, body: BotDecideRequest):
-    bot = PERSONAS[body.persona]()
+    bot = PERSONA_REGISTRY[body.persona]()
     hole_cards = parse_cards(body.hole_cards)
     board = tuple(parse_cards(body.board))
 

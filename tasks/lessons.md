@@ -107,3 +107,36 @@
 - **Applied To:** `.github/workflows/ci.yml` -- if `frontend/package.json`'s Node-version
   assumptions ever change (e.g. dropping the `NODE_OPTIONS` workaround), revisit whether CI's
   pinned version can relax too.
+
+---
+
+- **Date:** 2026-08-01
+- **Mistake:** Part 12 Phase 5's `poker.hand_flow.rebuild_hand_state` reconstructs a hand's state
+  by replaying exactly what's been persisted so far -- correct and fully tested on its own. But
+  `backend/services/game_engine.py`'s first cut called it and immediately fed the result straight
+  into `apply_hero_action`. Nothing gets recorded for a fresh street until someone actually acts on
+  it, so whenever the persisted log's last action happened to CLOSE a street (with hero's real next
+  turn landing on the new street, sometimes after a bot acts there first), reconstruction correctly
+  stopped exactly at that closed round -- one `advance_hand` cascade behind where the hand actually
+  needed to be. `apply_hero_action` then rejected hero's very next action with "it is not hero's
+  turn to act", intermittently, only when that specific street-boundary timing lined up (~10-20% of
+  random real-persona playthroughs in manual repro loops).
+- **Correction:** Added `_load_and_sync_state`, which calls `advance_hand` immediately after
+  `rebuild_hand_state` to complete any pending cascade, and -- critically -- persists whatever that
+  produces right away, before returning. Bot decisions use live, unseeded Monte Carlo equity, so
+  silently discarding this step's result would make a second read of the same pending hand
+  potentially resolve a bot's turn *differently* each time, with no single version ever recorded as
+  the real outcome.
+- **Lesson:** A "reconstruct state from persisted history" function tested entirely on its own
+  (`rebuild_hand_state`'s own test suite passed throughout) can still be wired in *wrong* at the
+  call site -- the bug was never in the reconstruction logic, only in assuming its output was
+  already resumable without an extra step the function's own docstring said was required. Standard
+  unit tests with a stub/deterministic bot didn't catch this either, since a stub's fixed behavior
+  never produces the specific street-boundary timing that triggers it -- only a loop of many
+  real-persona playthroughs (unseeded, genuinely random bot decisions) surfaced it reliably.
+- **Applied To:** `backend/services/game_engine.py` -- any future caller of `rebuild_hand_state`
+  must go through `_load_and_sync_state`, never call it directly. More generally: when a pure
+  function's contract says "caller must do X afterward," a stub-bot test suite proves the function
+  itself is correct but not that every call site actually does X -- that needs either an explicit
+  test of the call site under real, varied conditions, or a wrapper that makes doing X impossible
+  to forget.

@@ -88,6 +88,7 @@ class BettingAction:
     action: str    # 'post_blind' | 'fold' | 'match' | 'raise_to'
     amount: float          # incremental chips moved by this action
     total_committed: float  # this seat's committed_street AFTER the action
+    pot_size_after: float = 0.0  # every seat's committed_total, summed, right after this action
 
 
 class BettingRound:
@@ -125,6 +126,13 @@ class BettingRound:
 
     def _active_non_folded_count(self):
         return sum(1 for p in self.players.values() if p.status != PlayerStatus.FOLDED)
+
+    def _pot_size(self):
+        """Every seat's committed_total, summed -- the whole hand's pot so
+        far, not just this street's. committed_total never resets between
+        streets, so this is correct regardless of which street this round
+        is for, with no separate running total to keep in sync."""
+        return sum(p.committed_total for p in self.players.values())
 
     def is_closed(self):
         return not self.needs_to_act or self._active_non_folded_count() < 2
@@ -180,14 +188,14 @@ class BettingRound:
         if action == 'fold':
             player.status = PlayerStatus.FOLDED
             self.needs_to_act.discard(seat)
-            record = BettingAction(seat, self.street, 'fold', 0.0, player.committed_street)
+            record = BettingAction(seat, self.street, 'fold', 0.0, player.committed_street, self._pot_size())
 
         elif action == 'match':
             if not (bounds.can_check or bounds.can_call):
                 raise ValueError(f'seat {seat} cannot check or call right now')
             actual = player.commit(bounds.call_amount)
             self.needs_to_act.discard(seat)
-            record = BettingAction(seat, self.street, 'match', actual, player.committed_street)
+            record = BettingAction(seat, self.street, 'match', actual, player.committed_street, self._pot_size())
 
         elif action == 'raise_to':
             if not bounds.can_raise:
@@ -217,7 +225,7 @@ class BettingRound:
                 s for s, p in self.players.items()
                 if p.status == PlayerStatus.ACTIVE and s != seat
             }
-            record = BettingAction(seat, self.street, 'raise_to', actual, new_total)
+            record = BettingAction(seat, self.street, 'raise_to', actual, new_total, self._pot_size())
 
         else:
             raise ValueError(f'unknown action {action!r}')
@@ -234,7 +242,7 @@ class BettingRound:
         player = self.players[seat]
         actual = player.commit(amount)
         self.current_bet = max(self.current_bet, player.committed_street)
-        record = BettingAction(seat, self.street, 'post_blind', actual, player.committed_street)
+        record = BettingAction(seat, self.street, 'post_blind', actual, player.committed_street, self._pot_size())
         self.actions.append(record)
         return record
 
