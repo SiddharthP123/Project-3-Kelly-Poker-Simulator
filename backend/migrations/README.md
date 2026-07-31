@@ -16,14 +16,22 @@ it from before the column was added (in practice: the live Render Postgres).
 Adds the Part 12 columns to the two existing tables (`game_sessions`, `hand_histories`) that
 `poker/hand_flow.py`'s multi-opponent, multi-street hands need. All four columns are nullable, so
 this is purely additive -- existing rows just get `NULL` in the new columns, nothing is rewritten
-or dropped. Run once, manually, against the real database, before Phase 5 (backend wiring) needs
-these columns to exist:
+or dropped.
+
+Run it with `backend/migrations/run_migrations.py` (applies every `.sql` file in this directory,
+in filename order, via SQLAlchemy against whatever `DATABASE_URL` points at -- no `psql` needed):
 
 ```bash
-psql "$DATABASE_URL" -f backend/migrations/0001_part12_multi_opponent_columns.sql
+source venv/bin/activate
+DATABASE_URL="<the real database URL>" PYTHONPATH=. python3 backend/migrations/run_migrations.py
 ```
+
+This is still a command **you** run deliberately, once, before Phase 5 needs these columns --
+nothing in the app or deploy process calls it automatically (same as `create_tables.py`). Each
+statement uses `IF NOT EXISTS`, so running it more than once (or against a database that already
+has these columns) is a safe no-op -- confirmed by running it twice in a row against a real local
+Postgres container during development.
 
 The new tables Part 12 also introduces (`game_session_opponents`, `hand_players`, `hand_actions`)
 need **no manual step** -- they're brand new tables, so `create_tables.py`'s existing
-`create_all()` already creates them the next time it's run (or the next time the backend process
-starts, if that's wired to call it).
+`create_all()` already creates them the next time it's run.
