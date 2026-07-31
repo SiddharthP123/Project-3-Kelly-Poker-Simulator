@@ -82,3 +82,28 @@
 - **Applied To:** Git workflow starting Part 11; `.pre-commit-config.yaml`; any future new
   dependency should get an explicit one-line justification in the commit message or a code
   comment, not just quietly added to `requirements.txt`/`package.json`.
+
+---
+
+- **Date:** 2026-07-31
+- **Mistake:** Part 11's `.github/workflows/ci.yml` pinned `node-version: '20'` for the frontend
+  job without checking it against local dev's actual Node version (25.8.1). `npm run test` passes
+  `--localstorage-file=...` via `NODE_OPTIONS` (the workaround from the Part 10 lesson above, for
+  Node's native-but-unbacked `localStorage` global shadowing jsdom's) -- Node 20 rejects that flag
+  via `NODE_OPTIONS` entirely (`node: --localstorage-file= is not allowed in NODE_OPTIONS`), so
+  the very first CI run on this project's very first PR failed on a check that had passed locally
+  every time.
+- **Correction:** Bumped `node-version` to `'25'` in `ci.yml` to match local dev exactly, rather
+  than picking an LTS number that "should" work. Also added a `concurrency` group to the workflow
+  after noticing pushing to a branch with an already-open PR triggers both the `push` and
+  `pull_request` events, producing two redundant runs on the same commit.
+- **Lesson:** A CI config that specifies its own tool versions is a second place version numbers
+  can silently drift from what's actually been tested -- this project already had exactly this
+  category of bug once (Node's `localStorage` behavior differing by version), and the fix for
+  *that* bug (the `NODE_OPTIONS` flag) turned out to have its own version sensitivity that only
+  CI's different Node install surfaced. When a workaround exists specifically because of
+  version-specific runtime behavior, treat the runtime version itself as part of what needs to
+  stay pinned/matched, not just the workaround code.
+- **Applied To:** `.github/workflows/ci.yml` -- if `frontend/package.json`'s Node-version
+  assumptions ever change (e.g. dropping the `NODE_OPTIONS` workaround), revisit whether CI's
+  pinned version can relax too.
