@@ -9,7 +9,15 @@ Run from the project root:
 """
 
 from backend.database import Base, engine
-from backend.models import BankrollLog, GameSession, HandHistory, User  # noqa: F401 -- import registers models
+from backend.models import (  # noqa: F401 -- import registers models
+    BankrollLog,
+    GameSession,
+    GameSessionOpponent,
+    HandAction,
+    HandHistory,
+    HandPlayer,
+    User,
+)
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)

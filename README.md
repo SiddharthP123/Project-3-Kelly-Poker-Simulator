@@ -750,7 +750,39 @@ Run just this part's tests:
 pytest tests/test_bots.py -v
 ```
 
-**Still to come** (each its own phase/PR, not built yet): the database schema to store a
-multi-street/multi-opponent hand, the backend API rewiring, a fully redesigned animated poker
-table (black/white, red suit symbols), and an account-wide statistics page. Kelly-recommended-stake
-UI is intentionally deprioritized until the game itself is done.
+### Phase 4: database schema for multi-street, multi-opponent hands
+
+Three new tables, all purely additive (safe under `create_tables.py`'s existing `create_all()` --
+no data loss risk, no manual step needed for a fresh database):
+
+- **`game_session_opponents`** — one row per opponent seat's persona, fixed for the life of a
+  session. Replaces the old single `bot_persona` column, which structurally can't hold 1-4
+  opponents.
+- **`hand_players`** — one row per seat per hand (hero + each opponent): starting/final stack,
+  fold/all-in status, net result, and **real hole cards for every seat, always** — the redaction
+  mechanism changes here. Part 10's "hidden column" pattern (don't store the opponent's cards until
+  they're allowed to be seen) doesn't scale to 5 seats × 4 streets; instead, cards are always
+  stored real, and a seat's cards are only ever *serialized* once it's earned the right to be seen
+  (won't be, until the response-schema layer is built in Phase 5). Same guarantee, cleaner
+  mechanism for N seats.
+- **`hand_actions`** — the full replayable action log (street, seat, action, amount, running pot
+  size), reusing `poker.betting.BettingAction`'s own vocabulary directly rather than inventing a
+  second one. This is what Phase 6's frontend will animate through, street by street, even when a
+  single API response resolves several streets at once (e.g. hero calls all-in preflop). Hero's own
+  `equity_at_decision`/`kelly_recommended_stake` move here too, now that a decision happens once
+  per street rather than once per hand.
+
+Two small nullable columns land on the *existing* `game_sessions` (`num_opponents`, `small_blind`,
+`big_blind`) and `hand_histories` (`button_seat`, `street`) tables — safe for a fresh database, but
+**not** something `create_all()` can add to an already-live table with real rows in it (it only
+creates missing tables, never alters existing ones). That's a genuine manual step against the live
+Render Postgres — see `backend/migrations/README.md` for exactly when/how to run it, done
+deliberately before Phase 5 needs those columns, not bundled silently into this commit.
+
+`GameSession.bot_persona` and `HandHistory`'s single-opponent card columns are left untouched
+(vestigial for new sessions, still valid for old ones) rather than dropped — a deliberate
+simplification from the Part 12 plan; that cleanup is its own future step, not part of this one.
+
+**Still to come** (each its own phase/PR, not built yet): the backend API rewiring, a fully
+redesigned animated poker table (black/white, red suit symbols), and an account-wide statistics
+page. Kelly-recommended-stake UI is intentionally deprioritized until the game itself is done.
