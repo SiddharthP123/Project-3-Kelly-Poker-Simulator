@@ -144,3 +144,16 @@ class KellyOptimalBot(Bot):
         if kelly_stake <= bet_to_call:
             return Action('call')
         return Action('raise', kelly_stake)
+
+
+# Persona key -> class, so callers (the Part 12 hand orchestrator, the
+# backend's game engine) can assign/store a persona by name rather than a
+# class reference. Part 12 Phase 3 extends this dict to 10 personas; kept
+# here rather than in the orchestrator since persona registration belongs
+# next to the persona classes themselves.
+PERSONA_REGISTRY = {
+    'tight-aggressive': TightAggressiveBot,
+    'loose-passive': LoosePassiveBot,
+    'random': RandomBot,
+    'kelly-optimal': KellyOptimalBot,
+}
