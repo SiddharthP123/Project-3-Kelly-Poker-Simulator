@@ -783,6 +783,54 @@ deliberately before Phase 5 needs those columns, not bundled silently into this 
 (vestigial for new sessions, still valid for old ones) rather than dropped — a deliberate
 simplification from the Part 12 plan; that cleanup is its own future step, not part of this one.
 
-**Still to come** (each its own phase/PR, not built yet): the backend API rewiring, a fully
+### Phase 5a: backend wiring (heads-up-focused)
+
+Rewrites `backend/services/game_engine.py` and `backend/routers/game.py` on top of
+`poker/hand_flow.py`, replacing Parts 8-10's single fixed-pot/one-opponent model. A real hand now
+spans multiple separate HTTP requests (deal, then one or more acts), so `HandState` can't just live
+in a Python variable between them the way `poker/hand_flow.py`'s own tests do it in one continuous
+process.
+
+- `POST /sessions` takes `num_opponents` (1-4), `small_blind`/`big_blind` instead of `bot_persona`
+  — personas are randomly assigned per opponent seat via `assign_opponent_personas` and stored in
+  the new `game_session_opponents` table. Bots get a randomized per-hand stack (50-150 big blinds),
+  reset every hand — only hero's `current_bankroll` persists across hands.
+- Two small but load-bearing changes to already-merged Phase 1/2 code, both re-verified against
+  their full existing test suites afterward: `poker/hand_flow.py` now deals the whole 5-card board
+  once, upfront (`HandState.board` is a property slicing it by street) rather than street-by-street
+  — behaviorally identical for a given seed (a shuffled deck's outcome is fixed at shuffle time
+  either way), but it means nothing needs to hold a live, mutating `Deck` object past hand creation.
+  `poker/betting.py`'s `BettingAction` now carries `pot_size_after`, computed at the moment of the
+  action from the same `BettingRound` that's already tracking every seat's `committed_total`.
+- `poker.hand_flow.rebuild_hand_state` (new) reconstructs a hand's `HandState` purely from
+  already-persisted plain data (hole cards, the fixed board, and the action log so far) by
+  *replaying* it through the same `BettingRound`/`_advance_street` primitives that originally
+  produced it — proven, via its own test, to resume a hand to an outcome byte-identical to never
+  having paused at all.
+- Redaction now happens at response-assembly time, not in storage: `HandPlayer.hole_cards` is
+  always the real cards for every seat; a seat's cards are only ever serialized once it's earned
+  the right to be seen (always hero's own, everyone's at a genuine multi-way showdown, nobody's at
+  a fold-out).
+- A real, subtle bug surfaced and got fixed here (see `tasks/lessons.md` for the full account):
+  reconstructing a hand's state and immediately applying hero's next action isn't quite enough —
+  nothing gets recorded for a fresh street until someone actually acts on it, so reconstruction
+  alone can land one `advance_hand` cascade behind where the hand actually is. `_load_and_sync_state`
+  fixes this by completing (and immediately persisting) that catch-up step before anything else
+  happens — critical since bot decisions use live, unseeded equity, so silently discarding an
+  unpersisted catch-up could resolve the same bot turn differently on a second read.
+
+Run just this part's tests:
+
+```bash
+pytest tests/backend/test_game_router.py -v
+```
+
+**Manual step still needed before this is usable against the live Render database:** run
+`backend/migrations/run_migrations.py` against it (see `backend/migrations/README.md`) — the new
+`num_opponents`/`small_blind`/`big_blind`/`button_seat`/`street` columns don't exist on the
+already-live `game_sessions`/`hand_histories` tables until that's done.
+
+**Still to come** (each its own phase/PR, not built yet): Phase 5b (multi-way side-pot testing
+specifically through the API, building on top of the general-purpose wiring above), a fully
 redesigned animated poker table (black/white, red suit symbols), and an account-wide statistics
 page. Kelly-recommended-stake UI is intentionally deprioritized until the game itself is done.

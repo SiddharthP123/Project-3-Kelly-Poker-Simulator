@@ -1,55 +1,52 @@
-"""Deals a hand, lets the human decide, resolves the outcome, and persists
-everything.
+"""Deals and resolves real multi-street, multi-opponent poker hands (Part
+12), replacing Parts 8-10's single fixed-pot/one-opponent model.
 
-Key insight: dealing and acting are two separate HTTP requests now (Part
-10 -- there's a real human deciding, not an instant bot call), so the
-board and the opponent's real hand have to be remembered server-side
-between them. dealt_board_cards/dealt_opponent_hole_cards on HandHistory
-are that memory -- deliberately never exposed in HandHistoryResponse, so
-the secret state a human hasn't earned the right to see yet (by calling
-or raising) is structurally unreachable through the API, not just
-policy-redacted.
+Key insight: a hand now spans multiple separate HTTP requests (deal, then
+one or more acts, since a real human decides across several streets
+instead of one instant decision) -- so HandState can't just live in a
+Python variable between them the way poker.hand_flow's own tests do it in
+one continuous process. poker.hand_flow.rebuild_hand_state reconstructs
+it fresh from whatever's been persisted so far (HandPlayer/HandAction
+rows) every time a request needs to continue a hand, and
+advance_hand/apply_hero_action pick up exactly where the previous request
+left off.
 
-GameSession.bot_persona is the actual named OPPONENT the session is
-against. Settlement reuses Part 4's ev_call directly: once the REAL
-outcome is known (win / n-way split / lose, expressed as a 1 / (1/n) / 0
-"realized equity"), plugging that into the exact same call-EV formula
-used for decision-making gives the real bankroll change -- no separate
-settlement formula needed.
+Bots get a randomized per-hand stack (50-150 big blinds), reset every
+hand -- only hero's session.current_bankroll persists across hands, per
+the Part 12 plan's simplification (tracking 4 more bot bankrolls doesn't
+serve this project's hero-bankroll-centric purpose).
+
+Redaction happens at response-assembly time (_build_live_response /
+build_historical_response), not in storage -- HandPlayer.hole_cards is
+always the real cards for every seat. A seat's cards are only ever
+serialized once it's earned the right to be seen: always for hero's own
+seat, and for every other seat once the hand reaches a genuine multi-way
+showdown -- never for a folded seat, and never for a fold-out winner
+either (matching real poker, and Part 10's original redaction guarantee,
+just via a different mechanism that scales to 1-4 opponents).
+
+GameSession.bot_persona is vestigial as of this part (kept NOT NULL with
+a placeholder rather than dropped -- see the Part 12 plan); the real
+per-seat personas live in GameSessionOpponent. HandHistory's old
+single-opponent columns (opponent_hole_cards, equity_at_decision, etc.)
+are likewise left untouched but unused going forward -- board_cards and
+dealt_board_cards are the two exceptions, reused for their original
+purpose (revealed-so-far vs. internal-only-until-earned), just now
+holding a progressively-revealed multi-street board instead of an
+instantly-dealt one.
 """
 
-from poker.bots import KellyOptimalBot, LoosePassiveBot, RandomBot, TightAggressiveBot
+import random
+
+from poker.betting import PlayerStatus
+from poker.bots import assign_opponent_personas
 from poker.cards import Card
-from poker.deck import Deck
-from poker.equity import calculate_equity
-from poker.ev import ev_call
-from poker.hand_evaluator import compare_hands
-from poker.kelly import kelly_fraction_from_pot_odds
+from poker.hand_flow import advance_hand, apply_hero_action, create_hand, rebuild_hand_state
 
-from backend.models import BankrollLog, HandHistory
+from backend.models import BankrollLog, GameSession, GameSessionOpponent, HandAction, HandHistory, HandPlayer
 
-PERSONAS = {
-    'tight-aggressive': TightAggressiveBot,
-    'loose-passive': LoosePassiveBot,
-    'random': RandomBot,
-    'kelly-optimal': KellyOptimalBot,
-}
-
-# Simplified fixed stakes for this part -- there's no multi-street betting
-# structure yet (a Part 11+ UI concern). pot_size already includes the
-# opponent's implied bet, matching Part 4's ev_call convention. A 1:1
-# ("pot-sized bet") ratio puts the breakeven point at 50% equity -- a
-# standard reference scenario, and one that naturally produces a mix of
-# fold/call/raise outcomes across realistic hands (see Kelly: with these
-# odds, the "call" zone -- where Kelly says risk more than nothing but not
-# more than the bet itself -- is equity in roughly (0.50, 0.55]).
-DEFAULT_POT_SIZE = 100.0
-DEFAULT_BET_TO_CALL = 100.0
-
-# Notional bankroll used only for the opponent bot's own bet-sizing math
-# (KellyOptimalBot requires one) -- never persisted, since only hero's
-# bankroll is tracked by this game.
-OPPONENT_NOTIONAL_BANKROLL = 10_000.0
+BOT_STACK_MIN_BB = 50
+BOT_STACK_MAX_BB = 150
 
 
 def _cards_to_str(cards):
@@ -57,140 +54,323 @@ def _cards_to_str(cards):
 
 
 def _cards_from_str(text):
+    if not text:
+        return []
     return [Card.from_str(token) for token in text.split(',')]
 
 
-def _resolve_showdown(hero_cards, opponent_cards, board, pot_size, stake):
-    hero_hand = list(hero_cards) + list(board)
-    opponent_hand = list(opponent_cards) + list(board)
-    winners = compare_hands([hero_hand, opponent_hand])
+def create_game_session(current_user, body, db):
+    starting_bankroll = body.starting_bankroll or current_user.starting_bankroll
+    personas = assign_opponent_personas(body.num_opponents, random.Random())
 
-    if 0 in winners:
-        realized_fraction = 1 / len(winners)
-        winner = 'hero' if len(winners) == 1 else 'split'
-    else:
-        realized_fraction = 0.0
-        winner = 'opponent'
+    session = GameSession(
+        user_id=current_user.id,
+        starting_bankroll=starting_bankroll,
+        current_bankroll=starting_bankroll,
+        bot_persona='multi-opponent',  # vestigial placeholder -- see Part 12 plan
+        kelly_multiplier=body.kelly_multiplier,
+        num_opponents=body.num_opponents,
+        small_blind=body.small_blind,
+        big_blind=body.big_blind,
+    )
+    db.add(session)
+    db.flush()
 
-    return winner, ev_call(realized_fraction, pot_size, stake)
+    for seat_index, persona in enumerate(personas, start=1):
+        db.add(GameSessionOpponent(game_session_id=session.id, seat_index=seat_index, persona=persona))
+
+    db.add(BankrollLog(game_session_id=session.id, bankroll_after=session.starting_bankroll))
+    db.commit()
+    db.refresh(session)
+    return session
 
 
 def get_pending_hand(session, db):
-    """The hand dealt but not yet acted on for this session, if any."""
+    """The hand dealt but not yet resolved for this session, if any."""
     return (
         db.query(HandHistory)
-        .filter_by(game_session_id=session.id, hero_action=None)
+        .filter(
+            HandHistory.game_session_id == session.id,
+            HandHistory.street.isnot(None),
+            HandHistory.street != 'complete',
+        )
+        .order_by(HandHistory.hand_number.desc())
         .first()
     )
 
 
-def deal_hand(session, db, num_simulations=2000, seed=None):
-    """Deals a new hand and computes hero's equity/Kelly-recommended stake,
-    but does NOT resolve it -- that's resolve_hand's job once the human
-    submits an actual decision.
+def _load_and_sync_state(hand, db):
+    """Reconstructs this hand's HandState from whatever's been persisted so
+    far, then completes (and immediately persists) any street-transition
+    or bot-turn resolution the persisted action log doesn't yet reflect.
 
-    Idempotent: if a pending hand already exists for this session, returns
-    it unchanged rather than dealing a new one over it (guards against a
-    double-click or a React StrictMode double-invoke burning cards).
+    rebuild_hand_state only ever replays exactly what's recorded -- and
+    nothing gets recorded for a fresh street until someone actually acts
+    on it, so a hand whose last persisted action closed a street (with
+    hero's real next turn landing on the NEW street, possibly after a bot
+    acts first there) reconstructs one advance_hand cascade behind where
+    it actually needs to be. Calling advance_hand here catches it up.
+
+    This step MUST be persisted immediately, not just returned to the
+    caller -- default_bot_action uses live, unseeded Monte Carlo equity,
+    so recomputing this same "catch-up" again later (e.g. a second read
+    of the same pending hand) could otherwise resolve a bot's turn
+    differently each time, with nothing ever recorded as the real outcome.
+
+    Returns (state, new_actions) -- new_actions is whatever this catch-up
+    step resolved (possibly empty, when the persisted log already ended
+    exactly at hero's turn or a completed hand).
     """
-    existing = get_pending_hand(session, db)
-    if existing is not None:
-        return existing
+    previous_count = len(hand.actions)
+    seat_data = [
+        {
+            'seat': p.seat_index, 'stack': p.starting_stack,
+            'persona': p.persona, 'hole_cards': _cards_from_str(p.hole_cards),
+        }
+        for p in sorted(hand.players, key=lambda p: p.seat_index)
+    ]
+    action_log = [
+        {'seq': a.seq, 'street': a.street, 'seat': a.seat_index, 'action': a.action, 'amount': a.amount}
+        for a in sorted(hand.actions, key=lambda a: a.seq)
+    ]
+    session = hand.game_session
 
-    deck = Deck(seed=seed)
-    deck.shuffle()
-    hero_hole_cards, opponent_hole_cards = deck.deal_hole_cards(num_players=2)
-    board = deck.deal_community(5)
-
-    equity_result = calculate_equity(
-        hero_hole_cards, num_opponents=1, board=(),
-        num_simulations=num_simulations, seed=seed,
+    state = rebuild_hand_state(
+        hero_seat=0, button_seat=hand.button_seat,
+        small_blind=session.small_blind, big_blind=session.big_blind,
+        hand_number=hand.hand_number, seat_data=seat_data,
+        full_board=_cards_from_str(hand.dealt_board_cards), action_log=action_log,
     )
-    equity_at_decision = equity_result.equity
-    kelly_recommended_stake = kelly_fraction_from_pot_odds(
-        equity_at_decision, DEFAULT_POT_SIZE, DEFAULT_BET_TO_CALL, session.kelly_multiplier or 1.0,
-    ) * session.current_bankroll
+    state = advance_hand(state)
 
-    hand_number = db.query(HandHistory).filter_by(game_session_id=session.id).count() + 1
+    new_actions = state.action_log[previous_count:]
+    _persist_progress(hand, state, new_actions, db)
+    return state, new_actions
 
+
+def _persist_new_hand(session, hand_number, state, starting_stacks, db):
     hand = HandHistory(
         game_session_id=session.id,
         hand_number=hand_number,
-        hero_hole_cards=_cards_to_str(hero_hole_cards),
-        dealt_board_cards=_cards_to_str(board),
-        dealt_opponent_hole_cards=_cards_to_str(opponent_hole_cards),
-        pot_size=DEFAULT_POT_SIZE,
-        equity_at_decision=equity_at_decision,
-        kelly_recommended_stake=kelly_recommended_stake,
+        hero_hole_cards=_cards_to_str(state.hole_cards[state.hero_seat]),
+        dealt_board_cards=_cards_to_str(state.full_board),
+        pot_size=0.0,
+        button_seat=state.button_seat,
+        street=state.street,
     )
     db.add(hand)
-    db.commit()
-    db.refresh(hand)
+    db.flush()
+
+    for seat, player in state.players.items():
+        db.add(HandPlayer(
+            hand_history_id=hand.id, seat_index=seat, is_hero=(seat == state.hero_seat),
+            persona=state.personas.get(seat), starting_stack=starting_stacks[seat],
+            hole_cards=_cards_to_str(state.hole_cards[seat]),
+            folded=(player.status == PlayerStatus.FOLDED),
+            all_in=(player.status == PlayerStatus.ALL_IN),
+        ))
+    db.flush()
 
     return hand
 
 
-def resolve_hand(session, hand, hero_action, hero_raise_amount, db, num_simulations=2000, seed=None):
-    """Resolves a pending hand (from deal_hand) given the human's real
-    fold/call/raise decision. Everything from here on is the same
-    settlement logic the pre-Part-10 auto-played play_hand used, just fed
-    a human decision instead of KellyOptimalBot's.
-    """
-    hero_hole_cards = _cards_from_str(hand.hero_hole_cards)
-    board = _cards_from_str(hand.dealt_board_cards)
-    opponent_hole_cards = _cards_from_str(hand.dealt_opponent_hole_cards)
+def _persist_progress(hand, state, new_actions, db):
+    """Appends whatever's new since the last time this hand was persisted
+    (new HandAction rows) and syncs HandHistory/HandPlayer to reflect the
+    state as it now stands. Called once after every deal_hand/act_on_hand
+    call, whether or not the hand actually finished this time."""
+    existing_count = len(hand.actions)
+    for offset, action in enumerate(new_actions):
+        db.add(HandAction(
+            hand_history_id=hand.id, seq=existing_count + offset, street=action.street,
+            seat_index=action.seat, action=action.action, amount=action.amount,
+            pot_size_after=action.pot_size_after,
+        ))
 
-    opponent_bot = PERSONAS[session.bot_persona]()
-    bot_action = None
-    board_cards_str = None
-    opponent_hole_cards_str = None
+    players_by_seat = {p.seat_index: p for p in hand.players}
+    is_complete = state.street == 'complete'
+    for seat, player in state.players.items():
+        hand_player = players_by_seat[seat]
+        hand_player.folded = (player.status == PlayerStatus.FOLDED)
+        hand_player.all_in = (player.status == PlayerStatus.ALL_IN)
+        if is_complete:
+            hand_player.final_stack = player.stack
+            hand_player.net_result = player.stack - hand_player.starting_stack
+            hand_player.is_winner = state.result['payouts'].get(seat, 0.0) > 0
 
-    if hero_action == 'fold':
-        # Real poker never reveals a folded opponent's hand -- neither
-        # board_cards nor opponent_hole_cards get stored for this hand.
-        winner, bankroll_delta = 'opponent', 0.0
+    hand.street = state.street
+    hand.board_cards = _cards_to_str(state.board)
+    hand.pot_size = sum(p.committed_total for p in state.players.values())
 
-    elif hero_action == 'call':
-        winner, bankroll_delta = _resolve_showdown(
-            hero_hole_cards, opponent_hole_cards, board, DEFAULT_POT_SIZE, DEFAULT_BET_TO_CALL,
-        )
-        board_cards_str = _cards_to_str(board)
-        opponent_hole_cards_str = _cards_to_str(opponent_hole_cards)
+    if is_complete:
+        hero_hand_player = players_by_seat[state.hero_seat]
+        hero_delta = state.players[state.hero_seat].stack - hero_hand_player.starting_stack
+        session = hand.game_session
+        session.current_bankroll = max(0.0, session.current_bankroll + hero_delta)
+        db.add(BankrollLog(
+            game_session_id=session.id, hand_history_id=hand.id, bankroll_after=session.current_bankroll,
+        ))
 
-    else:  # 'raise' -- give the opponent a chance to fold to it first
-        opponent_decision = opponent_bot.decide_from_hand(
-            opponent_hole_cards, board=(), pot_size=DEFAULT_POT_SIZE,
-            bet_to_call=hero_raise_amount, num_opponents=1,
-            bankroll=OPPONENT_NOTIONAL_BANKROLL, num_simulations=num_simulations, seed=seed,
-        )
-        bot_action = opponent_decision.action
-
-        if bot_action == 'fold':
-            winner, bankroll_delta = 'hero', DEFAULT_POT_SIZE
-        else:
-            winner, bankroll_delta = _resolve_showdown(
-                hero_hole_cards, opponent_hole_cards, board, DEFAULT_POT_SIZE, hero_raise_amount,
-            )
-            board_cards_str = _cards_to_str(board)
-            opponent_hole_cards_str = _cards_to_str(opponent_hole_cards)
-
-    new_bankroll = max(0.0, session.current_bankroll + bankroll_delta)
-
-    hand.board_cards = board_cards_str
-    hand.opponent_hole_cards = opponent_hole_cards_str
-    hand.hero_action = hero_action
-    hand.bot_action = bot_action
-    hand.winner = winner
-    hand.hero_bankroll_delta = bankroll_delta
-    # The private deal-time memory has served its purpose -- clear it now
-    # that the public columns above hold whatever's actually allowed to be
-    # seen (which may still be nothing at all, if hero folded).
-    hand.dealt_board_cards = None
-    hand.dealt_opponent_hole_cards = None
-
-    session.current_bankroll = new_bankroll
-    db.add(BankrollLog(game_session_id=session.id, hand_history_id=hand.id, bankroll_after=new_bankroll))
     db.commit()
-    db.refresh(hand)
 
-    return hand
+
+def _build_live_response(hand, state, new_actions):
+    """Assembles the response for a hand that's actively being played --
+    deal_hand, act_on_hand, and the pending-hand fetch all use this, since
+    all three need the reconstructed HandState (for legal_action_bounds
+    and live per-seat stacks), not just what's already in the DB."""
+    is_complete = state.street == 'complete'
+    reveal_seats = set(state.result['reveal'].keys()) if is_complete else set()
+    players_by_seat = {p.seat_index: p for p in hand.players}
+
+    player_responses = []
+    for seat in sorted(state.players.keys()):
+        player = state.players[seat]
+        hand_player = players_by_seat[seat]
+        can_reveal = seat == state.hero_seat or seat in reveal_seats
+        player_responses.append({
+            'seat_index': seat,
+            'is_hero': seat == state.hero_seat,
+            'persona': state.personas.get(seat),
+            'stack': player.stack,
+            'hole_cards': _cards_to_str(state.hole_cards[seat]) if can_reveal else None,
+            'folded': player.status == PlayerStatus.FOLDED,
+            'all_in': player.status == PlayerStatus.ALL_IN,
+            'is_winner': hand_player.is_winner,
+            'net_result': hand_player.net_result,
+        })
+
+    legal_action_bounds = None
+    if not is_complete:
+        bounds = state.betting_round.legal_action_bounds(state.hero_seat)
+        legal_action_bounds = {
+            'can_fold': bounds.can_fold, 'can_check': bounds.can_check, 'can_call': bounds.can_call,
+            'call_amount': bounds.call_amount, 'can_raise': bounds.can_raise,
+            'min_raise_to': bounds.min_raise_to, 'max_raise_to': bounds.max_raise_to,
+        }
+
+    start_seq = len(state.action_log) - len(new_actions)
+    return {
+        'id': hand.id,
+        'hand_number': hand.hand_number,
+        'button_seat': hand.button_seat,
+        'street': state.street,
+        'board_cards': _cards_to_str(state.board),
+        'pot_size': hand.pot_size,
+        'players': player_responses,
+        'legal_action_bounds': legal_action_bounds,
+        'actions': [
+            {
+                'seq': start_seq + i, 'street': a.street, 'seat_index': a.seat,
+                'action': a.action, 'amount': a.amount, 'pot_size_after': a.pot_size_after,
+            }
+            for i, a in enumerate(new_actions)
+        ],
+        'winners': state.result['winners'] if is_complete else None,
+        'played_at': hand.played_at,
+    }
+
+
+def build_historical_response(hand):
+    """Assembles the response for listing hand history -- cheaper than
+    the live path, since a finished (or abandoned) hand needs no
+    HandState reconstruction at all; everything it needs is already
+    persisted directly on HandHistory/HandPlayer/HandAction."""
+    is_complete = hand.street == 'complete'
+
+    return {
+        'id': hand.id,
+        'hand_number': hand.hand_number,
+        'button_seat': hand.button_seat,
+        'street': hand.street,
+        'board_cards': hand.board_cards,
+        'pot_size': hand.pot_size,
+        'players': [
+            {
+                'seat_index': p.seat_index,
+                'is_hero': p.is_hero,
+                'persona': p.persona,
+                'stack': p.final_stack if p.final_stack is not None else p.starting_stack,
+                'hole_cards': p.hole_cards if (p.is_hero or (is_complete and not p.folded)) else None,
+                'folded': p.folded,
+                'all_in': p.all_in,
+                'is_winner': p.is_winner,
+                'net_result': p.net_result,
+            }
+            for p in sorted(hand.players, key=lambda p: p.seat_index)
+        ],
+        'legal_action_bounds': None,
+        'actions': [
+            {
+                'seq': a.seq, 'street': a.street, 'seat_index': a.seat_index,
+                'action': a.action, 'amount': a.amount, 'pot_size_after': a.pot_size_after,
+            }
+            for a in sorted(hand.actions, key=lambda a: a.seq)
+        ],
+        'winners': [p.seat_index for p in hand.players if p.is_winner] if is_complete else None,
+        'played_at': hand.played_at,
+    }
+
+
+def get_pending_hand_response(hand, db):
+    """The live view of a hand that's already been dealt but not yet
+    resolved. Reconstructing can itself resolve (and persist) a pending
+    bot-turn/street-transition catch-up -- see _load_and_sync_state --
+    so any actions that produced are reported too, not hidden from a
+    client that's specifically asking to see this hand's current state."""
+    state, new_actions = _load_and_sync_state(hand, db)
+    return _build_live_response(hand, state, new_actions=new_actions)
+
+
+def deal_hand(session, db, seed=None):
+    """Deals a new hand, resolving any bot turns that come before hero's
+    first decision. Idempotent: a pending hand already existing for this
+    session is returned as-is rather than dealing a new one over it
+    (guards against a double-click or a React StrictMode double-invoke
+    burning cards)."""
+    existing = get_pending_hand(session, db)
+    if existing is not None:
+        return get_pending_hand_response(existing, db)
+
+    rng = random.Random(seed)
+    opponents = sorted(session.opponents, key=lambda o: o.seat_index)
+    num_opponents = session.num_opponents
+    opponent_stacks = [
+        rng.uniform(BOT_STACK_MIN_BB, BOT_STACK_MAX_BB) * session.big_blind for _ in range(num_opponents)
+    ]
+    personas = [o.persona for o in opponents]
+    hand_number = db.query(HandHistory).filter_by(game_session_id=session.id).count() + 1
+    hero_stack = session.current_bankroll
+
+    state = create_hand(
+        num_opponents=num_opponents, hero_stack=hero_stack, opponent_stacks=opponent_stacks,
+        personas=personas, small_blind=session.small_blind, big_blind=session.big_blind,
+        hand_number=hand_number, seed=seed,
+    )
+    state = advance_hand(state)  # resolve any bot turns before hero's first decision
+
+    starting_stacks = {0: hero_stack}
+    starting_stacks.update({seat + 1: opponent_stacks[seat] for seat in range(num_opponents)})
+
+    hand = _persist_new_hand(session, hand_number, state, starting_stacks, db)
+    _persist_progress(hand, state, state.action_log, db)
+
+    return _build_live_response(hand, state, new_actions=state.action_log)
+
+
+def act_on_hand(hand, action, raise_to, db):
+    """Applies hero's fold/call/raise decision to a pending hand, then
+    resolves whatever follows (further bot turns, street transitions,
+    possibly a full showdown) before returning. Raises ValueError for an
+    illegal action (not hero's turn, hand already complete, bad raise_to)
+    -- translated to an HTTP 400 by the router, not here."""
+    state, _ = _load_and_sync_state(hand, db)
+    previous_count = len(hand.actions)  # reflects whatever _load_and_sync_state just persisted
+
+    state = apply_hero_action(state, action, raise_to=raise_to)
+    state = advance_hand(state)
+
+    new_actions = state.action_log[previous_count:]
+    _persist_progress(hand, state, new_actions, db)
+
+    return _build_live_response(hand, state, new_actions=new_actions)

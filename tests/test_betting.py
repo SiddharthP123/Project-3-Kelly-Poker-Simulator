@@ -75,6 +75,25 @@ def test_blinds_set_current_bet_and_committed_amounts():
     assert round_.current_bet == 10.0
 
 
+def test_pot_size_after_reflects_the_whole_hand_not_just_the_current_street():
+    players = _heads_up_players()
+    round_ = BettingRound(players, order=[0, 1], current_bet=0.0, min_raise=10.0)
+    blind_record = round_.post_blind(0, 5.0)
+    assert blind_record.pot_size_after == 5.0
+
+    call_record = round_.apply(1, 'match')  # matches seat 0's 5 (only blind posted)
+    assert call_record.pot_size_after == 10.0  # 5 + 5
+
+    # A later street's BettingRound is a different object, but reuses the
+    # SAME PlayerState instances -- pot_size_after should keep accumulating
+    # across streets, not reset with committed_street.
+    for player in players:
+        player.start_new_street()
+    flop_round = BettingRound(players, order=[0, 1], current_bet=0.0, min_raise=10.0, street='flop')
+    flop_record = flop_round.apply(0, 'raise_to', raise_to=20.0)
+    assert flop_record.pot_size_after == 10.0 + 20.0
+
+
 def test_both_players_matching_closes_the_round():
     players = _heads_up_players()
     round_ = BettingRound(players, order=[0, 1], current_bet=0.0, min_raise=10.0)
