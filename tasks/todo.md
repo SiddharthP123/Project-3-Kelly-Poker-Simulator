@@ -14,6 +14,15 @@
 - [x] Part 9: Authentication & Security
 - [x] Part 10: Frontend (React)
 - [x] Part 11: Deployment
+- [ ] Part 12: Real Poker Engine (multi-street, multi-opponent, side pots)
+  - [x] Phase 1: `poker/betting.py` -- betting rounds + side pots, pure Python
+  - [ ] Phase 2: `poker/hand_flow.py` -- orchestrator (streets, bot turns)
+  - [ ] Phase 3: expand `poker/bots.py` to 10 personas
+  - [ ] Phase 4: database schema (multi-street/multi-opponent hands)
+  - [ ] Phase 5: backend wiring (`game_engine.py` + `routers/game.py`)
+  - [ ] Phase 6: modern animated poker table (frontend)
+  - [ ] Phase 7: account-wide statistics page
+  - [ ] Phase 8 (deprioritized): re-polish Kelly-recommended-stake UI
 
 ## Completed:
 

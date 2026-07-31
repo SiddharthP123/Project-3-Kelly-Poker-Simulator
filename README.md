@@ -39,6 +39,7 @@ solid and tested before any API or UI is built on top of it.
 | 9 | Authentication & Security | ✅ Done |
 | 10 | Frontend (React) | ✅ Done |
 | 11 | Deployment | ✅ Done |
+| 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | 🔄 In progress |
 
 ## Setup
 
@@ -630,3 +631,67 @@ Render's free Postgres may expire after a period of inactivity on some plans; th
 service cold-starts after ~15 min idle (see Usage above); Vercel's Hobby tier is free but
 non-commercial/single-developer only. All fine for a portfolio demo link — upgrade the specific
 tier that matters if this needs to stay reliably live.
+
+---
+
+## Part 12: Real Poker Engine (multi-street, multi-opponent, side pots)
+
+**Why this part exists:** Parts 8-10 deliberately simplified the game to one fixed $100 pot/bet,
+exactly one opponent, and one hero decision resolving the entire hand instantly (the full board
+dealt upfront) — enough to prove the deal → decide → resolve pipeline end-to-end without building
+a full poker engine before there was a UI to use it. Part 12 replaces that with the real thing:
+blinds, no-limit betting with side pots, 1-4 opponents drawn from an expanded 10-persona roster,
+and a genuine flop → turn → river progression with a betting round after each street. This is a
+large, multi-phase expansion — built and shipped incrementally, same pattern as Parts 1-11, not in
+one pass. Each phase gets its own branch/PR.
+
+**Key insight (this phase):** side-pot math only ever needs one number per player — their total
+contribution to the hand (`committed_total`) — and whether they folded. It doesn't care about
+streets, bet sizes, or turn order at all. Sort the distinct contribution levels, and each gap
+between consecutive levels is one pot "layer": its size is `(gap × number of players who reached
+at least that level)`, and only non-folded players who reached that level are eligible to win it.
+A worked example proves this out: three players all-in for $50/$120/$200 (no folds) splits into a
+$150 main pot (all three eligible), a $140 side pot (the $120/$200 players), and an $80 side pot
+(only the $200 player — wins it uncontested, even though they might not have the best hand overall
+against players eligible for the bigger main pot). Checksum: `150+140+80 = 370 = 50+120+200`.
+
+A second, smaller trick: the human-facing 5-verb vocabulary (fold/check/call/bet/raise) collapses
+to just 3 engine primitives — `fold` / `match` / `raise_to`. Check is "match a bet of $0"; bet is
+"raise from a bet of $0." One comparison (amount vs. `current_bet`) validates any action; the
+friendlier verbs are a label added at the API layer later, not a second implementation.
+
+### Phase 1 (this commit): `poker/betting.py` — pure Python, no DB/HTTP
+
+Same pattern as every other `poker/` module: built and fully unit-tested standalone before
+anything touches a database or an endpoint (exactly how `hand_evaluator.py` was built and tested
+in Part 2, long before Part 8 ever wired it into a router).
+
+- `PlayerState` — per-seat mutable state (`stack`, `committed_street`, `committed_total`,
+  `status`). One `.commit(amount)` method keeps `committed_street` (this street only) and
+  `committed_total` (the whole hand) in sync, so they can never drift apart.
+- `BettingRound` — one street's betting for N players. `legal_action_bounds(seat)` returns exactly
+  what a client needs to validate a decision before submitting it (call amount, min/max legal
+  raise); `apply(seat, action, raise_to)` validates and applies `fold`/`match`/`raise_to`,
+  correctly reopening the action for everyone else on a raise (including an undersized all-in —
+  official poker's "doesn't reopen action" exception for that specific case isn't implemented,
+  a deliberate simplification, flagged in the class docstring).
+- `refund_uncalled_bet()` — a required correctness step, not an edge case: when a street closes
+  with nobody matching the largest bet (everyone folded to it, or the rest are all-in for less),
+  the excess gets refunded before pots are built. Without this, chip totals silently don't balance
+  and a pot layer can end up with no eligible winners.
+- `build_pots(players)` / `award_pots(pots, hands)` — the side-pot layering algorithm above, and
+  awarding each layer by reusing `poker/hand_evaluator.py`'s existing `compare_hands` **unchanged**
+  — it already returns N-way winner indices, exactly what a contested layer needs. A layer with
+  only one eligible seat is awarded directly, no hand comparison necessary.
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_betting.py -v
+```
+
+**Still to come** (each its own phase/PR, not built yet): the orchestrator tying this engine to
+real bot decisions across streets, an expanded 10-persona roster with randomized seat assignment,
+the database schema to store a multi-street/multi-opponent hand, the backend API rewiring, a fully
+redesigned animated poker table (black/white, red suit symbols), and an account-wide statistics
+page. Kelly-recommended-stake UI is intentionally deprioritized until the game itself is done.
