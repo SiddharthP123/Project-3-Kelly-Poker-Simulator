@@ -1,0 +1,40 @@
+# Render Blueprint -- defines the backend web service and its Postgres
+# database together, so "New > Blueprint" in the Render dashboard can
+# stand up both in one pass instead of manual per-resource setup.
+#
+# See README.md "Part 11: Deployment" for the full step-by-step runbook,
+# including what happens with each `sync: false` prompt below.
+
+services:
+  - name: kelly-poker-backend
+    type: web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon # change to whichever region is closest to you
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kelly-poker-db
+          property: connectionString
+      # Render prompts for this during Blueprint creation -- generate
+      # your own with: python3 -c "import secrets; print(secrets.token_hex(32))"
+      # Never reuse backend/config.py's dev-only default here.
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRY_MINUTES
+        value: '60'
+      # Placeholder -- update to the real Vercel URL once the frontend
+      # is deployed (see the runbook's "chicken-and-egg" step). Render
+      # redeploys automatically when an env var changes.
+      - key: CORS_ALLOWED_ORIGINS
+        value: http://localhost:3000
+
+databases:
+  - name: kelly-poker-db
+    plan: free
+    region: oregon # keep this in sync with the web service's region above

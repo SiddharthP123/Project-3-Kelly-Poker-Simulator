@@ -13,7 +13,7 @@
 - [x] Part 8: Backend API (FastAPI)
 - [x] Part 9: Authentication & Security
 - [x] Part 10: Frontend (React)
-- [ ] Part 11: Deployment
+- [x] Part 11: Deployment
 
 ## Completed:
 
@@ -67,3 +67,17 @@ despite the workflow calling for it after each part.
   branch and open a PR for review before merging, instead of committing
   straight to `main` — confirmed with the project owner during the
   compliance audit.
+- **Part 11** — deployment config only, no application code changes.
+  Backend deploys to Render as a Docker container (`Dockerfile` +
+  `.dockerignore` + `render.yaml` Blueprint wiring a free web service to a
+  free Postgres); frontend deploys to Vercel via its native Vite build
+  (`frontend/vercel.json` for React Router's SPA rewrite). Added
+  `.github/workflows/ci.yml` mirroring `.pre-commit-config.yaml`'s three
+  checks, closing the "no CI" gap from the compliance audit. This is the
+  first part built on a feature branch with an opened PR rather than a
+  direct push to `main`, per the process change agreed above. The
+  Dockerfile was built and run locally (confirmed `/health` responds with
+  no live DB, and `$PORT` is correctly picked up at runtime) before ever
+  being pointed at Render. Actually creating the Render/Vercel
+  accounts/resources is the project owner's step — see README's "Part 11:
+  Deployment" runbook.

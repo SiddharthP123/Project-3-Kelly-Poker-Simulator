@@ -1,0 +1,53 @@
+name: CI
+
+# Mirrors .pre-commit-config.yaml's three checks exactly, so local and CI
+# enforcement never drift apart -- if a check passes locally before a
+# commit, it should pass here too, and vice versa.
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+# Pushing to a branch that already has an open PR triggers both `push`
+# and `pull_request` -- this cancels the older, now-superseded run on the
+# same ref instead of letting both finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements.txt
+      # No Postgres service needed -- tests/backend/conftest.py runs the
+      # whole suite against a temp-file SQLite database.
+      - run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Must match (or exceed) local dev's Node version. `npm run test`
+          # passes --localstorage-file via NODE_OPTIONS (see package.json)
+          # to work around this Node version's native-but-unbacked
+          # localStorage global shadowing jsdom's -- older Node majors
+          # (confirmed: 20) reject that flag via NODE_OPTIONS entirely,
+          # so this can't silently drift from whatever's on the dev
+          # machine.
+          node-version: '25'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build

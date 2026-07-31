@@ -38,7 +38,7 @@ solid and tested before any API or UI is built on top of it.
 | 8 | Backend API (FastAPI) | ✅ Done |
 | 9 | Authentication & Security | ✅ Done |
 | 10 | Frontend (React) | ✅ Done |
-| 11 | Deployment | ⬜ Not started |
+| 11 | Deployment | ✅ Done |
 
 ## Setup
 
@@ -543,3 +543,90 @@ npm install
 npm run dev
 # Visit http://localhost:3000
 ```
+
+---
+
+## Part 11: Deployment
+
+**Key insight:** the two services deploy independently — the backend to Render (as a Docker
+container, since that's portable to any host and mirrors exactly what runs locally), the frontend
+to Vercel (via its own native Vite build, no Docker needed there) — but they have a real
+chicken-and-egg dependency on each other's URL: the frontend needs the backend's URL to call it
+(`VITE_API_BASE_URL`), and the backend needs the frontend's URL to allow it (`CORS_ALLOWED_ORIGINS`).
+Neither exists until the other is deployed once, so going live takes two passes, not one — the
+runbook below is written in the order that actually resolves this, not the order you might
+naively guess.
+
+This part adds no application code — only deployment configuration
+(`Dockerfile`, `.dockerignore`, `render.yaml`, `frontend/vercel.json`) and CI
+(`.github/workflows/ci.yml`, mirroring `.pre-commit-config.yaml`'s three checks exactly so local
+and CI enforcement never drift apart). The Dockerfile was built and run locally before ever being
+pointed at Render — confirmed it serves `/health` with no live database connection (by design;
+`/health` deliberately has no DB dependency, see Part 8) and correctly picks up a runtime-injected
+`$PORT`, exactly how Render's platform behaves.
+
+### Usage (once deployed)
+
+Visit the Vercel URL, sign up, start a session (pick an opponent persona and starting bankroll),
+and play: deal a hand, see your equity and the live Kelly-recommended stake, fold/call/raise, see
+the resolution, check the dashboard for bankroll growth and win rate. **First request after 15
+minutes of inactivity will be slow (10-30s)** — Render's free tier spins the backend down when
+idle and cold-starts it on the next request. This is expected, not a bug.
+
+### Testing
+
+Nothing new to run beyond what Parts 8-10 already established:
+
+```bash
+pytest -q                                    # 182 tests, no Postgres needed (SQLite-backed)
+cd frontend && npm run lint && npm run test && npm run build   # 28 tests + production build
+pre-commit run --all-files                   # all three checks, exactly what CI now also runs
+```
+
+`.github/workflows/ci.yml` runs the same three checks (pytest, oxlint, vitest — plus a production
+build) automatically on every push and on every PR targeting `main`, closing the "no CI" gap
+found in this project's own compliance audit and giving real signal on PRs going forward (this
+part is the first to open one, rather than pushing straight to `main` — see `tasks/lessons.md`).
+
+### Deployment runbook
+
+Deliberately **not** something I can do for you — creating the Render/Vercel accounts and
+clicking through their dashboards needs your own browser session and credentials. Everything
+below is prepared and verified; these are the steps to actually go live.
+
+1. **Merge this PR** (or work from the `feature/part-11-deployment` branch directly if you want
+   to deploy before merging — Render/Vercel can both point at a specific branch).
+
+2. **Render — backend + database.** Dashboard → **New → Blueprint** → connect this GitHub repo.
+   Render reads `render.yaml` and shows both resources it's about to create (the web service and
+   a free Postgres). It will prompt for `JWT_SECRET_KEY` (marked `sync: false` in the Blueprint)
+   — generate your own, don't reuse the local dev default:
+   ```bash
+   python3 -c "import secrets; print(secrets.token_hex(32))"
+   ```
+   Deploy the Blueprint. Note the resulting URL, e.g. `https://kelly-poker-backend.onrender.com`.
+
+3. **Stand up the production schema.** Still no Alembic (deliberately deferred since Part 8) —
+   `create_all()` is additive and safe to run once. In the Render dashboard, open the web
+   service's **Shell** tab and run:
+   ```bash
+   PYTHONPATH=. python3 backend/create_tables.py
+   ```
+
+4. **Vercel — frontend.** Dashboard → **Add New → Project** → import this GitHub repo → set
+   **Root Directory** to `frontend` (this is a monorepo) → add an environment variable
+   `VITE_API_BASE_URL` = `https://kelly-poker-backend.onrender.com/api` (your real Render URL +
+   `/api`) → Deploy. Note the resulting URL, e.g. `https://kelly-poker-simulator.vercel.app`.
+
+5. **Close the loop.** Back in Render, edit the web service's `CORS_ALLOWED_ORIGINS` env var to
+   your real Vercel URL from step 4 (comma-separate if you need more than one, e.g. a Vercel
+   preview URL too). Render redeploys automatically on env var change.
+
+6. **Smoke test the live URL:** sign up, start a session, deal a hand, act on it, check the
+   dashboard — the same flow verified locally in Part 10.
+
+**Free-tier caveats** (verify current terms before relying on these long-term — they change):
+Render's free Postgres may expire after a period of inactivity on some plans; the free web
+service cold-starts after ~15 min idle (see Usage above); Vercel's Hobby tier is free but
+non-commercial/single-developer only. All fine for a portfolio demo link — upgrade the specific
+tier that matters if this needs to stay reliably live.
