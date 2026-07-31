@@ -690,8 +690,38 @@ Run just this part's tests:
 pytest tests/test_betting.py -v
 ```
 
-**Still to come** (each its own phase/PR, not built yet): the orchestrator tying this engine to
-real bot decisions across streets, an expanded 10-persona roster with randomized seat assignment,
-the database schema to store a multi-street/multi-opponent hand, the backend API rewiring, a fully
-redesigned animated poker table (black/white, red suit symbols), and an account-wide statistics
-page. Kelly-recommended-stake UI is intentionally deprioritized until the game itself is done.
+### Phase 2: `poker/hand_flow.py` — the orchestrator
+
+Ties Phase 1's betting engine to real bot decisions across a full hand, still pure Python — no
+DB/HTTP yet.
+
+- `create_hand(...)` — deals hole cards to hero + 1-4 opponents, rotates the button by hand number
+  (uniform N-player rule, including heads-up — no special heads-up button treatment, a deliberate
+  simplification), and posts blinds.
+- `advance_hand(state, decide_bot_action)` — loops resolving bot turns and street transitions
+  (dealing the next street, refunding an uncalled bet, opening a fresh `BettingRound`) until either
+  it's hero's turn or the hand is complete. This loop is the resumability boundary an HTTP request
+  will need later, since hero now acts across multiple separate requests instead of one.
+- `apply_hero_action(state, action, raise_to)` — applies hero's one fold/call/raise decision;
+  the caller runs `advance_hand` again afterward for whatever follows.
+- `default_bot_action` — translates `poker/bots.py`'s fold/call/raise vocabulary into the engine's
+  fold/match/raise_to primitives: recomputes each bot's live opponent count fresh every decision,
+  suppresses folding when checking is free, and clamps a bot's proposed raise against
+  `legal_action_bounds` (below the minimum legal raise becomes a call, above the stack is capped at
+  all-in). `poker/bots.py` itself needed **no interface change** — this translation lives entirely
+  in the orchestrator.
+- A fold-out (everyone else folds) and a genuine multi-way showdown are resolved by the exact same
+  function — `build_pots`/`award_pots` already handle a single eligible seat as a trivial one-seat
+  pot, so there's no separate "everyone folded" code path to get wrong.
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_hand_flow.py -v
+```
+
+**Still to come** (each its own phase/PR, not built yet): an expanded 10-persona roster with
+randomized seat assignment, the database schema to store a multi-street/multi-opponent hand, the
+backend API rewiring, a fully redesigned animated poker table (black/white, red suit symbols), and
+an account-wide statistics page. Kelly-recommended-stake UI is intentionally deprioritized until
+the game itself is done.

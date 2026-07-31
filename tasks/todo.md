@@ -16,7 +16,7 @@
 - [x] Part 11: Deployment
 - [ ] Part 12: Real Poker Engine (multi-street, multi-opponent, side pots)
   - [x] Phase 1: `poker/betting.py` -- betting rounds + side pots, pure Python
-  - [ ] Phase 2: `poker/hand_flow.py` -- orchestrator (streets, bot turns)
+  - [x] Phase 2: `poker/hand_flow.py` -- orchestrator (streets, bot turns)
   - [ ] Phase 3: expand `poker/bots.py` to 10 personas
   - [ ] Phase 4: database schema (multi-street/multi-opponent hands)
   - [ ] Phase 5: backend wiring (`game_engine.py` + `routers/game.py`)
@@ -90,3 +90,10 @@ despite the workflow calling for it after each part.
   being pointed at Render. Actually creating the Render/Vercel
   accounts/resources is the project owner's step — see README's "Part 11:
   Deployment" runbook.
+- **Part 12 Phase 1-2** — `poker/betting.py` (blinds, no-limit betting rounds, side-pot
+  construction/awarding) and `poker/hand_flow.py` (the multi-street orchestrator tying it to real
+  bot decisions). Both pure Python, no DB/HTTP, each on its own branch/PR per the process agreed
+  after Part 10's audit. 238 tests total (56 new). `poker/bots.py` needed no interface change for
+  Phase 2 -- the fold/call/raise-to-engine-primitive translation (including clamping a bot's
+  proposed raise against `legal_action_bounds`, and suppressing folding when checking is free)
+  lives entirely in the new orchestrator, confirmed by a design pass before implementation started.
