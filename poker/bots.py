@@ -73,6 +73,17 @@ class ThresholdBot(Bot):
         return Action('call')
 
 
+class VeryTightPassiveBot(ThresholdBot):
+    """The "Rock": plays an even narrower range than a TAG, and rarely
+    bets big even with a strong hand -- tight AND passive, the most
+    conservative persona on the table."""
+
+    name = 'Very-Tight-Passive'
+
+    def __init__(self, fold_below=0.65, raise_above=0.90, raise_sizing=0.35):
+        super().__init__(fold_below, raise_above, raise_sizing)
+
+
 class TightAggressiveBot(ThresholdBot):
     """Plays a narrow range of strong hands, but bets big when it does --
     the classic "TAG" persona."""
@@ -83,6 +94,28 @@ class TightAggressiveBot(ThresholdBot):
         super().__init__(fold_below, raise_above, raise_sizing)
 
 
+class VeryTightAggressiveBot(ThresholdBot):
+    """The "Nit-Shark": plays even fewer hands than a TAG, but bets even
+    bigger than a TAG when it does -- a step further along the same
+    tight-aggressive axis, not a different style."""
+
+    name = 'Very-Tight-Aggressive'
+
+    def __init__(self, fold_below=0.70, raise_above=0.80, raise_sizing=0.90):
+        super().__init__(fold_below, raise_above, raise_sizing)
+
+
+class BalancedBot(ThresholdBot):
+    """Sits squarely between tight/loose and passive/aggressive -- a
+    rough "GTO-ish" reference point the more extreme personas can be
+    compared against."""
+
+    name = 'Balanced'
+
+    def __init__(self, fold_below=0.45, raise_above=0.60, raise_sizing=0.65):
+        super().__init__(fold_below, raise_above, raise_sizing)
+
+
 class LoosePassiveBot(ThresholdBot):
     """Plays almost any hand (a "calling station") and rarely raises even
     with a strong one."""
@@ -90,6 +123,39 @@ class LoosePassiveBot(ThresholdBot):
     name = 'Loose-Passive'
 
     def __init__(self, fold_below=0.15, raise_above=0.85, raise_sizing=0.4):
+        super().__init__(fold_below, raise_above, raise_sizing)
+
+
+class VeryLoosePassiveBot(ThresholdBot):
+    """The "Weak-Loose": calls with almost anything and almost never
+    raises even with the nuts -- the extreme end of the loose-passive
+    axis, one step further than LoosePassiveBot."""
+
+    name = 'Very-Loose-Passive'
+
+    def __init__(self, fold_below=0.05, raise_above=0.95, raise_sizing=0.30):
+        super().__init__(fold_below, raise_above, raise_sizing)
+
+
+class LooseAggressiveBot(ThresholdBot):
+    """The "LAG": plays a wide range like a loose-passive bot, but bets
+    aggressively rather than just calling along -- loose AND aggressive,
+    a genuinely different combination from either axis alone."""
+
+    name = 'Loose-Aggressive'
+
+    def __init__(self, fold_below=0.25, raise_above=0.45, raise_sizing=0.85):
+        super().__init__(fold_below, raise_above, raise_sizing)
+
+
+class VeryLooseAggressiveBot(ThresholdBot):
+    """The "Maniac": plays almost any two cards and raises big with a
+    huge range -- the most aggressive, least selective persona on the
+    table, betting more than the pot itself when it raises."""
+
+    name = 'Very-Loose-Aggressive'
+
+    def __init__(self, fold_below=0.10, raise_above=0.30, raise_sizing=1.10):
         super().__init__(fold_below, raise_above, raise_sizing)
 
 
@@ -148,12 +214,32 @@ class KellyOptimalBot(Bot):
 
 # Persona key -> class, so callers (the Part 12 hand orchestrator, the
 # backend's game engine) can assign/store a persona by name rather than a
-# class reference. Part 12 Phase 3 extends this dict to 10 personas; kept
-# here rather than in the orchestrator since persona registration belongs
-# next to the persona classes themselves.
+# class reference. Kept here rather than in the orchestrator since
+# persona registration belongs next to the persona classes themselves.
 PERSONA_REGISTRY = {
+    'very-tight-passive': VeryTightPassiveBot,
     'tight-aggressive': TightAggressiveBot,
+    'very-tight-aggressive': VeryTightAggressiveBot,
+    'balanced': BalancedBot,
     'loose-passive': LoosePassiveBot,
+    'very-loose-passive': VeryLoosePassiveBot,
+    'loose-aggressive': LooseAggressiveBot,
+    'very-loose-aggressive': VeryLooseAggressiveBot,
     'random': RandomBot,
     'kelly-optimal': KellyOptimalBot,
 }
+
+
+def assign_opponent_personas(num_opponents, rng):
+    """Randomly assigns num_opponents distinct personas out of all 10
+    registered ones (every persona, including Random and Kelly-Optimal,
+    is eligible) -- one persona per opponent seat, no repeats within a
+    single table.
+
+    rng: a random.Random instance, so callers control reproducibility
+    (tests pass a seeded one; a real game passes an unseeded one).
+    """
+    if not 1 <= num_opponents <= len(PERSONA_REGISTRY):
+        raise ValueError(f'num_opponents must be between 1 and {len(PERSONA_REGISTRY)}')
+
+    return rng.sample(list(PERSONA_REGISTRY.keys()), k=num_opponents)
