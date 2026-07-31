@@ -17,7 +17,7 @@
 - [ ] Part 12: Real Poker Engine (multi-street, multi-opponent, side pots)
   - [x] Phase 1: `poker/betting.py` -- betting rounds + side pots, pure Python
   - [x] Phase 2: `poker/hand_flow.py` -- orchestrator (streets, bot turns)
-  - [ ] Phase 3: expand `poker/bots.py` to 10 personas
+  - [x] Phase 3: expand `poker/bots.py` to 10 personas
   - [ ] Phase 4: database schema (multi-street/multi-opponent hands)
   - [ ] Phase 5: backend wiring (`game_engine.py` + `routers/game.py`)
   - [ ] Phase 6: modern animated poker table (frontend)
@@ -97,3 +97,8 @@ despite the workflow calling for it after each part.
   Phase 2 -- the fold/call/raise-to-engine-primitive translation (including clamping a bot's
   proposed raise against `legal_action_bounds`, and suppressing folding when checking is free)
   lives entirely in the new orchestrator, confirmed by a design pass before implementation started.
+- **Part 12 Phase 3** — expanded `poker/bots.py` from 4 to 10 personas, all reusing the existing
+  `ThresholdBot` base with no new decision logic -- just 6 new threshold-value combinations plus
+  `assign_opponent_personas(num_opponents, rng)` to randomly seat distinct personas. 252 tests
+  total (14 new). `backend/services/game_engine.py`'s own persona dict is untouched -- backend
+  wiring is Phase 5, not this phase.

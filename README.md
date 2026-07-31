@@ -720,8 +720,37 @@ Run just this part's tests:
 pytest tests/test_hand_flow.py -v
 ```
 
-**Still to come** (each its own phase/PR, not built yet): an expanded 10-persona roster with
-randomized seat assignment, the database schema to store a multi-street/multi-opponent hand, the
-backend API rewiring, a fully redesigned animated poker table (black/white, red suit symbols), and
-an account-wide statistics page. Kelly-recommended-stake UI is intentionally deprioritized until
-the game itself is done.
+### Phase 3: `poker/bots.py` — 10 opponent personas
+
+Expands the original 4 personas to 10, all reusing the existing `ThresholdBot(fold_below,
+raise_above, raise_sizing)` base **unchanged** — every new persona is just a different set of
+threshold values plugged into logic that already existed, not new decision logic:
+
+| Persona | fold_below | raise_above | raise_sizing |
+|---|---|---|---|
+| Very-Tight-Passive ("Rock") | 0.65 | 0.90 | 0.35 |
+| Tight-Aggressive | 0.55 | 0.65 | 0.75 |
+| Very-Tight-Aggressive ("Nit-Shark") | 0.70 | 0.80 | 0.90 |
+| Balanced (GTO-ish) | 0.45 | 0.60 | 0.65 |
+| Loose-Passive | 0.15 | 0.85 | 0.40 |
+| Very-Loose-Passive ("Weak-Loose") | 0.05 | 0.95 | 0.30 |
+| Loose-Aggressive ("LAG") | 0.25 | 0.45 | 0.85 |
+| Very-Loose-Aggressive ("Maniac") | 0.10 | 0.30 | 1.10 |
+| Random | — | — | — |
+| Kelly-Optimal | — | — | — |
+
+`assign_opponent_personas(num_opponents, rng)` samples `num_opponents` distinct personas out of
+all 10 (every persona, including Random and Kelly-Optimal, is eligible) — one per opponent seat,
+no repeats within a table. Takes an explicit `random.Random` instance so callers control
+reproducibility.
+
+Run just this part's tests:
+
+```bash
+pytest tests/test_bots.py -v
+```
+
+**Still to come** (each its own phase/PR, not built yet): the database schema to store a
+multi-street/multi-opponent hand, the backend API rewiring, a fully redesigned animated poker
+table (black/white, red suit symbols), and an account-wide statistics page. Kelly-recommended-stake
+UI is intentionally deprioritized until the game itself is done.

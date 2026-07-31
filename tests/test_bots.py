@@ -1,12 +1,22 @@
+import random
+
 import pytest
 
 from poker.bots import (
+    PERSONA_REGISTRY,
     Action,
+    BalancedBot,
     Bot,
     KellyOptimalBot,
+    LooseAggressiveBot,
     LoosePassiveBot,
     RandomBot,
     TightAggressiveBot,
+    VeryLooseAggressiveBot,
+    VeryLoosePassiveBot,
+    VeryTightAggressiveBot,
+    VeryTightPassiveBot,
+    assign_opponent_personas,
 )
 from poker.cards import Card
 from poker.kelly import kelly_fraction_from_pot_odds
@@ -145,3 +155,125 @@ def test_decide_from_hand_integration_with_equity_calculator():
         num_simulations=3000, seed=5,
     )
     assert action.action == 'raise'
+
+
+# --- expanded persona roster (Part 12 Phase 3) ----------------------------
+
+
+def test_very_tight_passive_folds_where_tight_aggressive_would_still_call():
+    # TAG's fold_below is 0.55, so 0.6 is comfortably in its calling range.
+    # The Rock's fold_below is 0.65 -- 0.6 should still be a fold for it.
+    bot = VeryTightPassiveBot()
+    action = bot.decide(equity=0.6, pot_size=100, bet_to_call=20)
+    assert action == Action('fold')
+
+
+def test_very_tight_passive_raises_smaller_than_tight_aggressive():
+    tag = TightAggressiveBot()
+    rock = VeryTightPassiveBot()
+
+    tag_action = tag.decide(equity=0.95, pot_size=100, bet_to_call=20)
+    rock_action = rock.decide(equity=0.95, pot_size=100, bet_to_call=20)
+
+    assert tag_action.action == rock_action.action == 'raise'
+    assert rock_action.raise_amount < tag_action.raise_amount
+
+
+def test_very_tight_aggressive_folds_more_but_raises_bigger_than_tight_aggressive():
+    tag = TightAggressiveBot()
+    nit_shark = VeryTightAggressiveBot()
+
+    # 0.6 is a call for TAG (fold_below=0.55) but a fold for the Nit-Shark
+    # (fold_below=0.70).
+    assert tag.decide(equity=0.6, pot_size=100, bet_to_call=20) == Action('call')
+    assert nit_shark.decide(equity=0.6, pot_size=100, bet_to_call=20) == Action('fold')
+
+    tag_raise = tag.decide(equity=0.95, pot_size=100, bet_to_call=20)
+    nit_shark_raise = nit_shark.decide(equity=0.95, pot_size=100, bet_to_call=20)
+    assert nit_shark_raise.raise_amount > tag_raise.raise_amount
+
+
+def test_balanced_bot_sits_between_tight_and_loose_thresholds():
+    bot = BalancedBot()
+    # 0.5 is below TAG's fold_below (0.55) but above loose-passive's
+    # (0.15) and above Balanced's own (0.45) -- should call, not fold.
+    action = bot.decide(equity=0.5, pot_size=100, bet_to_call=20)
+    assert action == Action('call')
+
+
+def test_very_loose_passive_calls_where_loose_passive_would_fold():
+    # LoosePassiveBot's fold_below is 0.15 -- 0.1 is a fold for it.
+    # Very-Loose-Passive's fold_below is 0.05 -- 0.1 should still call.
+    loose_passive = LoosePassiveBot()
+    weak_loose = VeryLoosePassiveBot()
+
+    assert loose_passive.decide(equity=0.1, pot_size=100, bet_to_call=20) == Action('fold')
+    assert weak_loose.decide(equity=0.1, pot_size=100, bet_to_call=20) == Action('call')
+
+
+def test_loose_aggressive_raises_where_loose_passive_would_call():
+    # Both play equity=0.5 (well within both personas' non-fold range),
+    # but LAG's raise_above (0.45) means it raises here while
+    # loose-passive's raise_above (0.85) means it just calls.
+    lag = LooseAggressiveBot()
+    loose_passive = LoosePassiveBot()
+
+    assert lag.decide(equity=0.5, pot_size=100, bet_to_call=20).action == 'raise'
+    assert loose_passive.decide(equity=0.5, pot_size=100, bet_to_call=20).action == 'call'
+
+
+def test_very_loose_aggressive_raises_the_biggest_of_any_persona():
+    maniac = VeryLooseAggressiveBot()
+    lag = LooseAggressiveBot()
+
+    maniac_action = maniac.decide(equity=0.9, pot_size=100, bet_to_call=20)
+    lag_action = lag.decide(equity=0.9, pot_size=100, bet_to_call=20)
+
+    assert maniac_action.action == lag_action.action == 'raise'
+    assert maniac_action.raise_amount > lag_action.raise_amount
+    assert maniac_action.raise_amount > 100  # bets more than the pot itself
+
+
+def test_persona_registry_has_all_ten_personas():
+    assert len(PERSONA_REGISTRY) == 10
+    assert set(PERSONA_REGISTRY.keys()) == {
+        'very-tight-passive', 'tight-aggressive', 'very-tight-aggressive',
+        'balanced', 'loose-passive', 'very-loose-passive', 'loose-aggressive',
+        'very-loose-aggressive', 'random', 'kelly-optimal',
+    }
+
+
+def test_persona_registry_entries_are_all_instantiable_bots():
+    for persona_class in PERSONA_REGISTRY.values():
+        bot = persona_class()
+        assert isinstance(bot, Bot)
+
+
+# --- assign_opponent_personas ----------------------------------------------
+
+
+def test_assign_opponent_personas_returns_requested_count_with_no_repeats():
+    rng = random.Random(1)
+    personas = assign_opponent_personas(4, rng)
+
+    assert len(personas) == 4
+    assert len(set(personas)) == 4  # no seat gets the same persona twice
+    assert set(personas) <= set(PERSONA_REGISTRY.keys())
+
+
+def test_assign_opponent_personas_is_reproducible_with_same_seeded_rng():
+    first = assign_opponent_personas(3, random.Random(42))
+    second = assign_opponent_personas(3, random.Random(42))
+    assert first == second
+
+
+def test_assign_opponent_personas_can_use_all_ten_at_once():
+    rng = random.Random(1)
+    personas = assign_opponent_personas(10, rng)
+    assert set(personas) == set(PERSONA_REGISTRY.keys())
+
+
+@pytest.mark.parametrize('num_opponents', [0, 11])
+def test_assign_opponent_personas_rejects_out_of_range_count(num_opponents):
+    with pytest.raises(ValueError):
+        assign_opponent_personas(num_opponents, random.Random(1))
