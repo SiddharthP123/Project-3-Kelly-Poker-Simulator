@@ -1,8 +1,9 @@
+import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 
 import { ActionControls } from '@/components/poker/action-controls'
+import { AnimatedCard } from '@/components/poker/animated-card'
 import { HandResultBanner } from '@/components/poker/hand-result-banner'
-import { PlayingCard } from '@/components/poker/playing-card'
 import { Seat } from '@/components/poker/seat'
 import { Button } from '@/components/ui/button'
 import { apiRequest } from '@/lib/api-client'
@@ -10,6 +11,7 @@ import { formatCurrency } from '@/lib/format'
 import { getSeatPosition } from '@/lib/seat-positions'
 
 const BOARD_SLOTS = 5
+const POT_POSITION = { top: '50%', left: '50%' }
 
 /**
  * The deal/act state machine for one session, now driving a multi-seat,
@@ -22,6 +24,14 @@ const BOARD_SLOTS = 5
  * response's own `street` field ('preflop'..'river' or 'complete') is
  * what distinguishes "hero has a decision" from "hand is over," so there's
  * nothing else to track separately.
+ *
+ * The felt/seats/board subtree is keyed by hand.id so a genuinely NEW
+ * hand remounts it -- that's what makes the deal-in animations replay
+ * for the new hand while NOT replaying on every action within the same
+ * hand (a street advancing, or an action resolving, only changes props
+ * on the already-mounted seat/card elements, which AnimatedCard only
+ * animates for the specific state transition it represents -- see its
+ * own docstring).
  */
 const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     const [hand, setHand] = useState(null)
@@ -115,25 +125,47 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
 
             {hand && (
                 <>
-                    <div className="relative aspect-[16/10] w-full rounded-[999px] border-4 border-white/10 bg-gradient-to-b from-zinc-800 to-black shadow-inner">
+                    <div
+                        key={hand.id}
+                        className="relative aspect-[16/10] w-full rounded-[999px] border-4 border-white/10 bg-gradient-to-b from-zinc-800 to-black shadow-inner"
+                    >
                         {hand.players.map((player) => (
                             <div
                                 key={player.seat_index}
                                 className="absolute -translate-x-1/2 -translate-y-1/2"
                                 style={getSeatPosition(player.seat_index, session.num_opponents)}
                             >
-                                <Seat player={player} isButton={player.seat_index === hand.button_seat} />
+                                <Seat
+                                    player={player}
+                                    isButton={player.seat_index === hand.button_seat}
+                                    dealDelay={player.seat_index * 0.12}
+                                />
                             </div>
                         ))}
 
                         <div className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
-                            <p className="text-sm font-medium text-white/70">
-                                Pot: {formatCurrency(hand.pot_size)}
-                            </p>
+                            <AnimatePresence mode="popLayout">
+                                <motion.p
+                                    key={hand.pot_size}
+                                    className="text-sm font-medium text-white/70"
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    Pot: {formatCurrency(hand.pot_size)}
+                                </motion.p>
+                            </AnimatePresence>
                             <div className="flex gap-1.5">
                                 {Array.from({ length: BOARD_SLOTS }, (_, index) => index).map((index) =>
                                     boardCards[index] ? (
-                                        <PlayingCard key={boardCards[index]} card={boardCards[index]} size="sm" />
+                                        <AnimatedCard
+                                            key={index}
+                                            dealt
+                                            card={boardCards[index]}
+                                            size="sm"
+                                            dealDelay={index * 0.15}
+                                        />
                                     ) : (
                                         <div
                                             key={index}
@@ -143,6 +175,20 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                                 )}
                             </div>
                         </div>
+
+                        {isComplete &&
+                            hand.winners.map((winnerSeat) => (
+                                <motion.div
+                                    key={`${hand.id}-chip-${winnerSeat}`}
+                                    className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_8px_2px_rgba(255,255,255,0.6)]"
+                                    initial={{ ...POT_POSITION, opacity: 0 }}
+                                    animate={{
+                                        ...getSeatPosition(winnerSeat, session.num_opponents),
+                                        opacity: [0, 1, 1, 0],
+                                    }}
+                                    transition={{ duration: 0.9, ease: 'easeInOut' }}
+                                />
+                            ))}
                     </div>
 
                     {isComplete && <HandResultBanner hand={hand} onDealNext={handleDeal} />}
