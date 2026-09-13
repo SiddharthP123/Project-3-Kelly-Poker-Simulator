@@ -936,5 +936,44 @@ Run just this part's tests:
 cd frontend && npm run test -- animated-card poker-table
 ```
 
-**Still to come**: an account-wide statistics page (Phase 7). Kelly-recommended-stake UI remains
-intentionally deprioritized (Phase 8).
+**Still to come**: an account-wide statistics page (Phase 7).
+
+## Part 12 Phase 8: re-polish Kelly-recommended-stake UI
+
+Wires hero's live equity and Kelly-recommended stake into the new multi-street flow -- the
+`HandAction.equity_at_decision`/`kelly_recommended_stake` columns Phase 4 added were real, but
+nothing had ever actually populated them; every hero decision from Phase 5 onward went straight
+through `legal_action_bounds` with no equity computed for hero at all (only bots' own equity, via
+a separate codepath).
+
+- **`_compute_hero_kelly_info`** (new, `backend/services/game_engine.py`) — hero's equity via
+  `poker.equity.calculate_equity` (3000 simulations — noticeably more than the bots' own 750, since
+  this number is shown to and decided on by an actual human) and Kelly-recommended stake via
+  `poker.kelly.kelly_fraction_from_pot_odds`. `kelly_recommended_stake` is `None` whenever hero can
+  check for free — Kelly sizing needs a real bet size to anchor to, the same scope Part 5
+  originally gave the formula, not a new restriction invented here.
+- **`HandResponse`** gains top-level `equity_at_decision`/`kelly_recommended_stake` fields (both
+  `None` once `street == 'complete'`), computed fresh for whatever the *current* decision is.
+  **`HandActionLogEntry`** gains the same two fields per-action — populated only on hero's own
+  persisted rows (never blinds, never bot actions), letting a hand's replay/history show what
+  hero's equity actually was at each real decision, not just the live one.
+- The values persisted on a `HandAction` row are computed **before** applying hero's decision (in
+  `act_on_hand`), so they reflect what was actually true at the moment of that decision — not
+  whatever recomputing the same numbers slightly later (with different Monte Carlo noise) would
+  produce.
+- **`KellyStakePanel`** (Part 10, previously built but unwired since Phase 6a) is back, restyled
+  dark/white to match the rest of the game screen, showing "Free to check" and a `—` for the Kelly
+  stake instead of a nonsensical number when there's nothing to call.
+
+**Real, noticeable cost**: every hero decision now runs a 3000-simulation Monte Carlo equity
+calculation (previously only bots paid this cost, at a smaller 750-simulation size). The full
+backend test suite's wall-clock time roughly tripled as a direct result (about 45s → ~140s) —
+expected and accepted, not a regression to chase down, but worth knowing about if the suite
+suddenly feels slow.
+
+Run just this part's tests:
+
+```bash
+pytest tests/backend/test_game_router.py -k "equity or kelly_stake" -v
+cd frontend && npm run test -- poker-table
+```

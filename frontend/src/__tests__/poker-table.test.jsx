@@ -34,6 +34,8 @@ const dealtHand = {
         can_fold: true, can_check: false, can_call: true, call_amount: 1,
         can_raise: true, min_raise_to: 4, max_raise_to: 998,
     },
+    equity_at_decision: 0.62,
+    kelly_recommended_stake: 45.5,
     actions: [],
     winners: null,
     played_at: '2026-08-01T00:00:00Z',
@@ -44,6 +46,8 @@ const resolvedHand = {
     street: 'complete',
     board_cards: '2c,3d,4h,5s,6c',
     legal_action_bounds: null,
+    equity_at_decision: null,
+    kelly_recommended_stake: null,
     winners: [0],
     players: [
         {
@@ -82,6 +86,9 @@ describe('PokerTable', () => {
         expect(screen.getByRole('button', { name: /call \$1/i })).toBeInTheDocument()
         // Opponent's cards are never sent by the API mid-hand -- rendered face-down.
         expect(screen.getByText('Tight-Aggressive')).toBeInTheDocument()
+        // Hero's live equity/Kelly-recommended stake, straight from the API.
+        expect(screen.getByText('62.0%')).toBeInTheDocument()
+        expect(screen.getByText(/\$45\.50/)).toBeInTheDocument()
     })
 
     it('resolves the hand once an action is submitted and calls onSessionUpdate', async () => {
@@ -98,6 +105,26 @@ describe('PokerTable', () => {
 
         await waitFor(() => expect(screen.getByText('You won!')).toBeInTheDocument())
         expect(onSessionUpdate).toHaveBeenCalled()
+    })
+
+    it('shows a dash for Kelly-recommended stake when hero can check for free', async () => {
+        const freeToCheckHand = {
+            ...dealtHand,
+            legal_action_bounds: { ...dealtHand.legal_action_bounds, can_check: true, can_call: false, call_amount: 0 },
+            kelly_recommended_stake: null,
+        }
+
+        global.fetch
+            .mockResolvedValueOnce(jsonResponse({ detail: 'not found' }, { status: 404 }))
+            .mockResolvedValueOnce(jsonResponse(freeToCheckHand))
+
+        render(<PokerTable sessionId="1" session={session} onSessionUpdate={vi.fn()} />)
+
+        await waitFor(() => screen.getByRole('button', { name: /deal hand/i }))
+        await userEvent.click(screen.getByRole('button', { name: /deal hand/i }))
+
+        await waitFor(() => expect(screen.getByText('Free to check')).toBeInTheDocument())
+        expect(screen.getByText('—')).toBeInTheDocument()
     })
 
     it('does not call onSessionUpdate when the street advances but the hand is still pending', async () => {

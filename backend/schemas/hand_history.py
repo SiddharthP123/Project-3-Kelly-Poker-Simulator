@@ -40,6 +40,14 @@ class HandActionLogEntry(ApiModel):
     action: str
     amount: float
     pot_size_after: float
+    # Only ever non-null for hero's own action rows, and only once
+    # persisted (Part 12 Phase 8) -- a fresh, not-yet-persisted action in
+    # a live response's `actions` list (see HandResponse) doesn't carry
+    # these; they're populated here only when reading already-recorded
+    # history (build_historical_response), one value per street instead
+    # of the single once-per-hand value Parts 8-10 stored.
+    equity_at_decision: float | None = None
+    kelly_recommended_stake: float | None = None
 
 
 class HandResponse(OrmResponseModel):
@@ -52,6 +60,14 @@ class HandResponse(OrmResponseModel):
     players: list[HandPlayerResponse]
     # Only present when it's genuinely hero's turn to act (street != 'complete').
     legal_action_bounds: LegalActionBoundsResponse | None
+    # Hero's equity/Kelly-recommended stake for the CURRENT decision --
+    # both null once street == 'complete'; kelly_recommended_stake is
+    # additionally null whenever hero can check for free (nothing to
+    # call), since Kelly sizing needs a real bet size to anchor to (see
+    # poker.kelly.kelly_fraction_from_pot_odds, which requires
+    # bet_to_call > 0 -- the same scope Part 5 originally established).
+    equity_at_decision: float | None
+    kelly_recommended_stake: float | None
     # Only the actions new since the last response (deal returns everything
     # since dealing; act returns whatever this specific request resolved) --
     # not the whole hand's history repeated every time, so a frontend can
