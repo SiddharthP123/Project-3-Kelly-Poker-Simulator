@@ -598,39 +598,47 @@ below is prepared and verified; these are the steps to actually go live.
 1. **Merge this PR** (or work from the `feature/part-11-deployment` branch directly if you want
    to deploy before merging — Render/Vercel can both point at a specific branch).
 
-2. **Render — backend + database.** Dashboard → **New → Blueprint** → connect this GitHub repo.
-   Render reads `render.yaml` and shows both resources it's about to create (the web service and
-   a free Postgres). It will prompt for `JWT_SECRET_KEY` (marked `sync: false` in the Blueprint)
-   — generate your own, don't reuse the local dev default:
-   ```bash
-   python3 -c "import secrets; print(secrets.token_hex(32))"
-   ```
+2. **Supabase — database.** Postgres is hosted on Supabase, not Render's own database — Render's
+   free Postgres tier deletes the whole database (not just pauses it) after 30 days; Supabase's
+   free tier only pauses on inactivity and resumes with one manual click in its dashboard, no
+   recreating tables from scratch every month. Create a free project at
+   [supabase.com](https://supabase.com), then grab its connection string from **Project Settings →
+   Database → Connection string → URI** — you'll need it in the next step.
+
+3. **Render — backend.** Dashboard → **New → Blueprint** → connect this GitHub repo. Render reads
+   `render.yaml` and prompts for two `sync: false` values:
+   - `DATABASE_URL` — the Supabase connection string from step 2.
+   - `JWT_SECRET_KEY` — generate your own, don't reuse the local dev default:
+     ```bash
+     python3 -c "import secrets; print(secrets.token_hex(32))"
+     ```
    Deploy the Blueprint. Note the resulting URL, e.g. `https://kelly-poker-backend.onrender.com`.
 
-3. **Stand up the production schema.** Still no Alembic (deliberately deferred since Part 8) —
-   `create_all()` is additive and safe to run once. In the Render dashboard, open the web
-   service's **Shell** tab and run:
+4. **Stand up the production schema.** Still no Alembic (deliberately deferred since Part 8) —
+   `create_all()` is additive and safe to run once. Since the database is externally reachable
+   (Supabase, not Render's Shell-gated Postgres), run this directly from your own machine:
    ```bash
-   PYTHONPATH=. python3 backend/create_tables.py
+   DATABASE_URL="<your Supabase connection string>" PYTHONPATH=. python3 backend/create_tables.py
    ```
 
-4. **Vercel — frontend.** Dashboard → **Add New → Project** → import this GitHub repo → set
+5. **Vercel — frontend.** Dashboard → **Add New → Project** → import this GitHub repo → set
    **Root Directory** to `frontend` (this is a monorepo) → add an environment variable
    `VITE_API_BASE_URL` = `https://kelly-poker-backend.onrender.com/api` (your real Render URL +
    `/api`) → Deploy. Note the resulting URL, e.g. `https://kelly-poker-simulator.vercel.app`.
 
-5. **Close the loop.** Back in Render, edit the web service's `CORS_ALLOWED_ORIGINS` env var to
-   your real Vercel URL from step 4 (comma-separate if you need more than one, e.g. a Vercel
+6. **Close the loop.** Back in Render, edit the web service's `CORS_ALLOWED_ORIGINS` env var to
+   your real Vercel URL from step 5 (comma-separate if you need more than one, e.g. a Vercel
    preview URL too). Render redeploys automatically on env var change.
 
-6. **Smoke test the live URL:** sign up, start a session, deal a hand, act on it, check the
+7. **Smoke test the live URL:** sign up, start a session, deal a hand, act on it, check the
    dashboard — the same flow verified locally in Part 10.
 
 **Free-tier caveats** (verify current terms before relying on these long-term — they change):
-Render's free Postgres may expire after a period of inactivity on some plans; the free web
-service cold-starts after ~15 min idle (see Usage above); Vercel's Hobby tier is free but
-non-commercial/single-developer only. All fine for a portfolio demo link — upgrade the specific
-tier that matters if this needs to stay reliably live.
+Supabase's free project pauses after a period of inactivity and needs one manual "restore" click
+in its dashboard before it'll accept connections again; Render's free web service cold-starts
+after ~15 min idle (see Usage above); Vercel's Hobby tier is free but non-commercial/single-developer
+only. All fine for a portfolio demo link — upgrade the specific tier that matters if this needs to
+stay reliably live.
 
 ---
 

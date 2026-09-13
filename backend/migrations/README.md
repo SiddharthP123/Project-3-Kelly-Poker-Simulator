@@ -9,7 +9,9 @@ normal flow.
 A fresh database (a new local SQLite test db, a brand new Postgres instance) never needs this --
 `create_all()` already creates every table with every column defined on the model today, including
 these. This only matters for a database that already has `game_sessions`/`hand_histories` rows in
-it from before the column was added (in practice: the live Render Postgres).
+it from before the column was added (in practice: the live production database -- Supabase, as of
+the Part 11 runbook's move away from Render's own free Postgres, which deletes itself after 30
+days idle rather than just pausing).
 
 ## `0001_part12_multi_opponent_columns.sql`
 
