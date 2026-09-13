@@ -13,6 +13,9 @@ const AppHeader = () => {
             </Link>
             {user && (
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <Link to="/stats" className="hover:text-foreground">
+                        Stats
+                    </Link>
                     <span>{user.display_name || user.email}</span>
                     <Button variant="outline" size="sm" onClick={logout}>
                         Log out
