@@ -882,5 +882,34 @@ by actually looking at the rendered table. Worth a manual pass in a real browser
 this phase fully done, per this project's own established lesson (Part 10's two real UI bugs both
 shipped past passing unit tests and were only caught by manual browser testing).
 
-**Still to come**: Phase 6b (Framer Motion dealing/flip/chip animations on top of this layout —
-needs its own dependency sign-off before it starts) and an account-wide statistics page.
+### Phase 6b: dealing/flip/chip animations
+
+Adds Framer Motion (~42KB gzipped) — signed off explicitly before this phase started, per the Part
+12 plan — and animates the transitions the static Phase 6a layout only ever *snapped* between:
+
+- **`AnimatedCard`** (new) — the animated counterpart to `PlayingCard`, built around two
+  intentionally separate props (`dealt`, `card`) rather than one nullable `card`, since "not dealt
+  yet" and "dealt face-down" are genuinely different states needing different treatment. A
+  `dealt: false -> true` transition plays a deal-in entrance (fade + slight rise) exactly once,
+  whether the card appears face-down (an opponent's hidden hole cards) or already face-up (the
+  board, which real dealers place face-up directly — never face-down then flipped). A `card: null
+  -> <value>` transition on an already-dealt card plays a 3D flip instead of an instant swap — this
+  is specifically the showdown-reveal moment for an opponent's hole cards.
+- **`Seat`** — hole-card slots are now keyed by *position* (0/1), not card value, so a showdown
+  reveal updates the same element in place (letting it flip) rather than unmounting one card and
+  mounting a different one. Deal-in is staggered by seat index, mirroring a real dealer's rotation.
+  The winning seat(s) now pulse (scale + glow) instead of Phase 6a's static white highlight.
+- **`PokerTable`** — the felt/seats/board subtree is now keyed by `hand.id`, so a genuinely new
+  hand remounts and replays every deal-in animation, while actions *within* the same hand only
+  update already-mounted elements (no re-triggered entrance animations on every street). Board
+  cards use `AnimatedCard` with a per-card stagger; the pot amount pulses on every change; a small
+  glowing "chip" now visibly travels from the pot to each winning seat once a hand completes.
+
+Run just this part's tests:
+
+```bash
+cd frontend && npm run test -- animated-card poker-table
+```
+
+**Still to come**: an account-wide statistics page (Phase 7). Kelly-recommended-stake UI remains
+intentionally deprioritized (Phase 8).

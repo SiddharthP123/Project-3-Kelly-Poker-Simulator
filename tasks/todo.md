@@ -22,7 +22,7 @@
   - [x] Phase 5a: backend wiring, heads-up-focused (`game_engine.py` + `routers/game.py`)
   - [ ] Phase 5b: multi-way side-pot testing through the API
   - [x] Phase 6a: modern poker table, static (frontend)
-  - [ ] Phase 6b: dealing/flip/chip animations (needs Framer Motion sign-off)
+  - [x] Phase 6b: dealing/flip/chip animations (Framer Motion sign-off given 2026-09-13)
   - [ ] Phase 7: account-wide statistics page
   - [ ] Phase 8 (deprioritized): re-polish Kelly-recommended-stake UI
 
@@ -135,3 +135,15 @@ despite the workflow calling for it after each part.
   tests) + oxlint + a production build -- **not** visually verified in a real browser this session
   (no browser tooling available); worth a manual pass before calling this phase fully done, per the
   Part 10 lesson that unit tests alone missed two real UI bugs.
+- **Part 12 Phase 6b** — added Framer Motion (~42KB gzipped; only 3 new packages, none flagged by
+  `npm audit` -- the flagged issues are pre-existing dev-tooling transitive deps, unaffected by this
+  addition), signed off explicitly before the phase started. New `AnimatedCard` (deal-in entrance +
+  a 3D flip specifically for an opponent's showdown reveal, built around two deliberately separate
+  `dealt`/`card` props rather than one nullable prop). `Seat`'s hole-card slots are now keyed by
+  position, not card value, so a reveal updates the same element in place instead of remounting a
+  different one. `PokerTable`'s felt/seats/board subtree is now keyed by `hand.id` so a genuinely
+  new hand replays deal-in animations while actions within the same hand don't re-trigger them. Pot
+  amount pulses on change; winning seat(s) pulse instead of a static highlight; a small chip visibly
+  travels from the pot to each winner at showdown. 38 tests total (5 new, `AnimatedCard`'s own
+  dealt/card/flip states) + oxlint + a production build -- same "not visually verified in a browser"
+  caveat as Phase 6a still applies.

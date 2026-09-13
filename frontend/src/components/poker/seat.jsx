@@ -1,4 +1,6 @@
-import { PlayingCard } from '@/components/poker/playing-card'
+import { motion } from 'framer-motion'
+
+import { AnimatedCard } from '@/components/poker/animated-card'
 import { formatCurrency, formatPersonaLabel } from '@/lib/format'
 
 /**
@@ -9,36 +11,51 @@ import { formatCurrency, formatPersonaLabel } from '@/lib/format'
  * placeholders for a non-hero seat, and nothing at all once a seat has
  * folded (a folded hand isn't still sitting face-down on the table in
  * real poker, it's mucked -- gone).
+ *
+ * dealDelay staggers the deal-in animation across seats (seat_index order,
+ * mirroring how a real dealer deals one card to each player in rotation
+ * rather than dealing one player's whole hand at once) -- passed straight
+ * through to AnimatedCard, which only actually plays it once per card,
+ * the moment that card first appears.
  */
-const Seat = ({ player, isButton }) => {
+const Seat = ({ player, isButton, dealDelay = 0 }) => {
     const label = player.is_hero ? 'You' : formatPersonaLabel(player.persona)
     const showCards = !player.folded
+    const cards = player.hole_cards ? player.hole_cards.split(',') : [null, null]
 
     return (
         <div className="flex flex-col items-center gap-1.5">
             <div className="flex items-center gap-1">
                 {showCards && (
                     <div className="flex gap-1">
-                        {player.hole_cards ? (
-                            player.hole_cards
-                                .split(',')
-                                .map((card) => <PlayingCard key={card} card={card} size="sm" />)
-                        ) : (
-                            <>
-                                <PlayingCard faceDown size="sm" />
-                                <PlayingCard faceDown size="sm" />
-                            </>
-                        )}
+                        {cards.map((card, index) => (
+                            // Keyed by slot position, not card value, so this
+                            // is the SAME element across a reveal (card going
+                            // from null to a real value) -- that's what lets
+                            // AnimatedCard flip it in place instead of one
+                            // element unmounting and a different one mounting.
+                            <AnimatedCard
+                                key={index}
+                                dealt
+                                card={card}
+                                size="sm"
+                                dealDelay={dealDelay + index * 0.06}
+                            />
+                        ))}
                     </div>
                 )}
             </div>
 
-            <div
+            <motion.div
                 className={`flex flex-col items-center rounded-md border px-3 py-1.5 text-center ${
-                    player.is_winner
-                        ? 'border-white bg-white text-black'
-                        : 'border-white/15 bg-black/40 text-white'
+                    player.is_winner ? 'border-white bg-white text-black' : 'border-white/15 bg-black/40 text-white'
                 }`}
+                animate={
+                    player.is_winner
+                        ? { scale: [1, 1.08, 1], boxShadow: ['0 0 0px #fff0', '0 0 18px #fff9', '0 0 0px #fff0'] }
+                        : { scale: 1 }
+                }
+                transition={player.is_winner ? { duration: 1.1, repeat: 2 } : { duration: 0.2 }}
             >
                 <div className="flex items-center gap-1.5">
                     {isButton && (
@@ -56,7 +73,7 @@ const Seat = ({ player, isButton }) => {
                 {!player.folded && player.all_in && (
                     <span className="text-[10px] uppercase tracking-wide text-red-500">All-in</span>
                 )}
-            </div>
+            </motion.div>
         </div>
     )
 }
