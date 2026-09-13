@@ -41,12 +41,20 @@ import random
 from poker.betting import PlayerStatus
 from poker.bots import assign_opponent_personas
 from poker.cards import Card
+from poker.equity import calculate_equity
 from poker.hand_flow import advance_hand, apply_hero_action, create_hand, rebuild_hand_state
+from poker.kelly import kelly_fraction_from_pot_odds
 
 from backend.models import BankrollLog, GameSession, GameSessionOpponent, HandAction, HandHistory, HandPlayer
 
 BOT_STACK_MIN_BB = 50
 BOT_STACK_MAX_BB = 150
+
+# Hero-facing equity is shown live in the UI (Part 12 Phase 8), not just
+# used internally like the bots' own equity calls -- a higher sample
+# count than DEFAULT_BOT_NUM_SIMULATIONS (750) buys noticeably less
+# jitter for a number a human is actually looking at and deciding from.
+HERO_NUM_SIMULATIONS = 3000
 
 
 def _cards_to_str(cards):
@@ -57,6 +65,40 @@ def _cards_from_str(text):
     if not text:
         return []
     return [Card.from_str(token) for token in text.split(',')]
+
+
+def _compute_hero_kelly_info(state, session):
+    """Hero's equity and Kelly-recommended stake for the CURRENT decision
+    -- call only while it's genuinely hero's turn (state.street != 'complete').
+
+    kelly_recommended_stake is None whenever hero can check for free
+    (nothing to call): poker.kelly.kelly_fraction_from_pot_odds requires
+    bet_to_call > 0 -- Kelly sizing is fundamentally "how much to invest
+    given a known bet," and there's no bet size to anchor to when
+    checking is free. That's the same scope Part 5 originally gave this
+    formula, not a new restriction invented here.
+    """
+    hero_seat = state.hero_seat
+    bounds = state.betting_round.legal_action_bounds(hero_seat)
+
+    num_live_opponents = sum(
+        1 for seat, player in state.players.items()
+        if seat != hero_seat and player.status != PlayerStatus.FOLDED
+    )
+    equity_result = calculate_equity(
+        state.hole_cards[hero_seat], num_opponents=max(1, num_live_opponents),
+        board=tuple(state.board), num_simulations=HERO_NUM_SIMULATIONS,
+    )
+    equity = equity_result.equity
+
+    kelly_recommended_stake = None
+    if bounds.call_amount > 0:
+        pot_size = sum(p.committed_total for p in state.players.values())
+        kelly_recommended_stake = kelly_fraction_from_pot_odds(
+            equity, pot_size, bounds.call_amount, session.kelly_multiplier or 1.0,
+        ) * state.players[hero_seat].stack
+
+    return equity, kelly_recommended_stake
 
 
 def create_game_session(current_user, body, db):
@@ -174,17 +216,27 @@ def _persist_new_hand(session, hand_number, state, starting_stacks, db):
     return hand
 
 
-def _persist_progress(hand, state, new_actions, db):
+def _persist_progress(hand, state, new_actions, db, hero_decision_info=None):
     """Appends whatever's new since the last time this hand was persisted
     (new HandAction rows) and syncs HandHistory/HandPlayer to reflect the
     state as it now stands. Called once after every deal_hand/act_on_hand
-    call, whether or not the hand actually finished this time."""
+    call, whether or not the hand actually finished this time.
+
+    hero_decision_info, when given, is the (equity, kelly_recommended_stake)
+    pair computed for hero's decision right before it was applied --
+    attached only to the one row (at most) among new_actions that's
+    actually hero's own action. Bot actions never carry these; there's
+    nothing to compute for a decision the client never made.
+    """
     existing_count = len(hand.actions)
     for offset, action in enumerate(new_actions):
+        is_hero_action = hero_decision_info is not None and action.seat == state.hero_seat
         db.add(HandAction(
             hand_history_id=hand.id, seq=existing_count + offset, street=action.street,
             seat_index=action.seat, action=action.action, amount=action.amount,
             pot_size_after=action.pot_size_after,
+            equity_at_decision=hero_decision_info[0] if is_hero_action else None,
+            kelly_recommended_stake=hero_decision_info[1] if is_hero_action else None,
         ))
 
     players_by_seat = {p.seat_index: p for p in hand.players}
@@ -241,6 +293,8 @@ def _build_live_response(hand, state, new_actions):
         })
 
     legal_action_bounds = None
+    equity_at_decision = None
+    kelly_recommended_stake = None
     if not is_complete:
         bounds = state.betting_round.legal_action_bounds(state.hero_seat)
         legal_action_bounds = {
@@ -248,6 +302,7 @@ def _build_live_response(hand, state, new_actions):
             'call_amount': bounds.call_amount, 'can_raise': bounds.can_raise,
             'min_raise_to': bounds.min_raise_to, 'max_raise_to': bounds.max_raise_to,
         }
+        equity_at_decision, kelly_recommended_stake = _compute_hero_kelly_info(state, hand.game_session)
 
     start_seq = len(state.action_log) - len(new_actions)
     return {
@@ -259,10 +314,13 @@ def _build_live_response(hand, state, new_actions):
         'pot_size': hand.pot_size,
         'players': player_responses,
         'legal_action_bounds': legal_action_bounds,
+        'equity_at_decision': equity_at_decision,
+        'kelly_recommended_stake': kelly_recommended_stake,
         'actions': [
             {
                 'seq': start_seq + i, 'street': a.street, 'seat_index': a.seat,
                 'action': a.action, 'amount': a.amount, 'pot_size_after': a.pot_size_after,
+                'equity_at_decision': None, 'kelly_recommended_stake': None,
             }
             for i, a in enumerate(new_actions)
         ],
@@ -300,10 +358,16 @@ def build_historical_response(hand):
             for p in sorted(hand.players, key=lambda p: p.seat_index)
         ],
         'legal_action_bounds': None,
+        # No "current decision" for a hand being read back historically --
+        # unlike the live path, these are only ever populated per-action
+        # below (each hero action row carries its own persisted value).
+        'equity_at_decision': None,
+        'kelly_recommended_stake': None,
         'actions': [
             {
                 'seq': a.seq, 'street': a.street, 'seat_index': a.seat_index,
                 'action': a.action, 'amount': a.amount, 'pot_size_after': a.pot_size_after,
+                'equity_at_decision': a.equity_at_decision, 'kelly_recommended_stake': a.kelly_recommended_stake,
             }
             for a in sorted(hand.actions, key=lambda a: a.seq)
         ],
@@ -367,10 +431,15 @@ def act_on_hand(hand, action, raise_to, db):
     state, _ = _load_and_sync_state(hand, db)
     previous_count = len(hand.actions)  # reflects whatever _load_and_sync_state just persisted
 
+    # Computed BEFORE applying hero's decision -- this is what hero's own
+    # equity/Kelly-recommended stake actually were AT the moment of this
+    # decision, not whatever they'd be recomputed as afterward.
+    hero_decision_info = _compute_hero_kelly_info(state, hand.game_session)
+
     state = apply_hero_action(state, action, raise_to=raise_to)
     state = advance_hand(state)
 
     new_actions = state.action_log[previous_count:]
-    _persist_progress(hand, state, new_actions, db)
+    _persist_progress(hand, state, new_actions, db, hero_decision_info=hero_decision_info)
 
     return _build_live_response(hand, state, new_actions=new_actions)

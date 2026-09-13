@@ -151,6 +151,72 @@ def test_deal_returns_heros_cards_and_hides_opponents_cards(client, auth_headers
     assert hand['legal_action_bounds']['can_fold'] is True
 
 
+def test_deal_exposes_heros_live_equity_and_kelly_stake(client, auth_headers):
+    session = _create_session(client, auth_headers)
+    hand = _deal(client, auth_headers, session['id'], seed=0)
+
+    # Hero is guaranteed to act first here (see _create_session) and faces
+    # the big blind -- a real bet, so both fields should be populated.
+    assert hand['legal_action_bounds']['can_call'] is True
+    assert 0.0 <= hand['equity_at_decision'] <= 1.0
+    assert hand['kelly_recommended_stake'] is not None
+
+
+def test_kelly_stake_is_null_when_hero_can_check_for_free(client, auth_headers):
+    # 3 opponents (4 seats): button=hero, first_to_act is seat 3 (not
+    # hero) preflop -- play calls around so the action reaches hero on a
+    # later street where nobody's bet yet (current_bet == 0, checking is
+    # free). Real personas decide with live equity, so this isn't
+    # guaranteed on every seed/attempt -- retry a few fresh hands.
+    for attempt in range(15):
+        session = _create_session(client, auth_headers, num_opponents=3)
+        hand = _deal(client, auth_headers, session['id'], seed=attempt)
+        guard = 0
+        while hand['street'] != 'complete' and guard < 20:
+            guard += 1
+            if hand['legal_action_bounds'] and hand['legal_action_bounds']['can_check']:
+                assert hand['kelly_recommended_stake'] is None
+                assert hand['equity_at_decision'] is not None
+                return
+            response = _act(client, auth_headers, session['id'], hand['id'], 'call')
+            assert response.status_code == 200
+            hand = response.json()
+
+    pytest.fail('never observed hero facing a free check within 15 attempts')
+
+
+def test_completed_hand_has_no_live_equity_or_kelly_stake(client, auth_headers):
+    session = _create_session(client, auth_headers)
+    dealt = _deal(client, auth_headers, session['id'], seed=0)
+    hand = _play_to_completion(client, auth_headers, session['id'], dealt)
+
+    assert hand['equity_at_decision'] is None
+    assert hand['kelly_recommended_stake'] is None
+
+
+def test_historical_hand_detail_shows_heros_persisted_equity_per_action(client, auth_headers):
+    session = _create_session(client, auth_headers)
+    dealt = _deal(client, auth_headers, session['id'], seed=0)
+
+    _play_to_completion(client, auth_headers, session['id'], dealt)
+
+    detail = client.get(
+        f"/api/game/sessions/{session['id']}/hands/{dealt['id']}", headers=auth_headers,
+    ).json()
+
+    hero_actions = [a for a in detail['actions'] if a['seat_index'] == _hero(dealt)['seat_index']]
+    # Every hero action row that isn't a forced blind post should carry
+    # the equity/Kelly values that were live at the moment of that
+    # decision -- blinds are forced, not a decision, so they carry none.
+    hero_decisions = [a for a in hero_actions if a['action'] != 'post_blind']
+    assert hero_decisions  # hero got at least one real decision this hand
+    assert all(0.0 <= a['equity_at_decision'] <= 1.0 for a in hero_decisions)
+
+    # Bot actions never carry hero's equity/Kelly fields.
+    bot_actions = [a for a in detail['actions'] if a['seat_index'] != _hero(dealt)['seat_index']]
+    assert all(a['equity_at_decision'] is None for a in bot_actions)
+
+
 def test_dealing_twice_is_idempotent(client, auth_headers):
     session = _create_session(client, auth_headers)
     first = _deal(client, auth_headers, session['id'], seed=1)

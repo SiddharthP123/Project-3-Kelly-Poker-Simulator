@@ -24,7 +24,7 @@
   - [x] Phase 6a: modern poker table, static (frontend)
   - [x] Phase 6b: dealing/flip/chip animations (Framer Motion sign-off given 2026-09-13)
   - [x] Phase 7: account-wide statistics page
-  - [ ] Phase 8 (deprioritized): re-polish Kelly-recommended-stake UI
+  - [x] Phase 8: re-polish Kelly-recommended-stake UI
 
 ## Completed:
 
@@ -167,4 +167,17 @@ despite the workflow calling for it after each part.
   expects. 8 new backend tests (2 were real test-authoring bugs on my part, both fixed: assumed
   heads-up guarantees hero a turn to fold, which it doesn't if the bot folds first; assumed folding
   always costs a blind, which isn't true for a 3+-seat table where the button posts nothing) + 3 new
-  frontend tests. 280 backend + 41 frontend tests total.
+  frontend tests.
+- **Part 12 Phase 8** — wired hero's live equity/Kelly-recommended stake into the new multi-street
+  flow. The `HandAction.equity_at_decision`/`kelly_recommended_stake` columns Phase 4 added were
+  real but never actually populated -- Phase 5's hero decisions went straight through
+  `legal_action_bounds` with no equity computed for hero at all. New `_compute_hero_kelly_info`
+  (3000-sim equity, vs. bots' own 750 -- this number is shown to a human) computes both fresh for
+  the current decision; `kelly_recommended_stake` is `None` whenever hero can check for free (Kelly
+  sizing needs a real bet size to anchor to). Persisted onto `HandAction` rows using the value
+  computed *before* applying hero's decision, not recomputed later with different Monte Carlo
+  noise. `KellyStakePanel` (Part 10, unwired since Phase 6a) is back, restyled dark/white to match
+  the game screen. Real, accepted cost: every hero decision now runs a 3000-sim equity call, and
+  the backend suite's wall-clock roughly tripled (~45s -> ~140s) as a direct result. 4 new backend
+  tests + 3 new/updated frontend tests. Combined with Phase 7, Part 12 (all 8 phases) is now
+  complete: 284 backend + 42 frontend tests total.

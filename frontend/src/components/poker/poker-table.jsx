@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ActionControls } from '@/components/poker/action-controls'
 import { AnimatedCard } from '@/components/poker/animated-card'
 import { HandResultBanner } from '@/components/poker/hand-result-banner'
+import { KellyStakePanel } from '@/components/poker/kelly-stake-panel'
 import { Seat } from '@/components/poker/seat'
 import { Button } from '@/components/ui/button'
 import { apiRequest } from '@/lib/api-client'
@@ -193,11 +194,20 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
 
                     {isComplete && <HandResultBanner hand={hand} onDealNext={handleDeal} />}
                     {!isComplete && hand.legal_action_bounds && (
-                        <ActionControls
-                            legalActionBounds={hand.legal_action_bounds}
-                            onAct={handleAct}
-                            isSubmitting={isSubmitting}
-                        />
+                        <>
+                            <KellyStakePanel
+                                equity={hand.equity_at_decision}
+                                kellyRecommendedStake={hand.kelly_recommended_stake}
+                                potSize={hand.pot_size}
+                                callAmount={hand.legal_action_bounds.call_amount}
+                                bankroll={session.current_bankroll}
+                            />
+                            <ActionControls
+                                legalActionBounds={hand.legal_action_bounds}
+                                onAct={handleAct}
+                                isSubmitting={isSubmitting}
+                            />
+                        </>
                     )}
                 </>
             )}
