@@ -5,22 +5,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-const PERSONAS = [
-    { value: 'tight-aggressive', label: 'Tight-Aggressive' },
-    { value: 'loose-passive', label: 'Loose-Passive' },
-    { value: 'random', label: 'Random' },
-    { value: 'kelly-optimal', label: 'Kelly-Optimal' },
-]
+// 1-4 opponents, matching the backend's supported range -- personas are
+// randomly assigned per seat server-side (poker.bots.assign_opponent_personas),
+// not chosen here.
+const OPPONENT_COUNTS = [1, 2, 3, 4]
 
 const SessionSetupForm = ({ onSubmit, isSubmitting, errorMessage }) => {
-    const [botPersona, setBotPersona] = useState('tight-aggressive')
+    const [numOpponents, setNumOpponents] = useState('1')
     const [startingBankroll, setStartingBankroll] = useState('')
     const [kellyMultiplier, setKellyMultiplier] = useState('1')
 
     const handleSubmit = (event) => {
         event.preventDefault()
         onSubmit({
-            botPersona,
+            numOpponents: Number(numOpponents),
             startingBankroll: startingBankroll ? Number(startingBankroll) : null,
             kellyMultiplier: kellyMultiplier ? Number(kellyMultiplier) : null,
         })
@@ -29,15 +27,15 @@ const SessionSetupForm = ({ onSubmit, isSubmitting, errorMessage }) => {
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-                <Label htmlFor="bot-persona">Opponent</Label>
-                <Select value={botPersona} onValueChange={setBotPersona}>
-                    <SelectTrigger id="bot-persona" className="w-full">
+                <Label htmlFor="num-opponents">Opponents</Label>
+                <Select value={numOpponents} onValueChange={setNumOpponents}>
+                    <SelectTrigger id="num-opponents" className="w-full">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {PERSONAS.map((persona) => (
-                            <SelectItem key={persona.value} value={persona.value}>
-                                {persona.label}
+                        {OPPONENT_COUNTS.map((count) => (
+                            <SelectItem key={count} value={String(count)}>
+                                {count} opponent{count > 1 ? 's' : ''}
                             </SelectItem>
                         ))}
                     </SelectContent>

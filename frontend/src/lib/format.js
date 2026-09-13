@@ -14,4 +14,18 @@ const formatCurrency = (amount) =>
  */
 const formatPercent = (fraction, decimals = 1) => `${(fraction * 100).toFixed(decimals)}%`
 
-export { formatCurrency, formatPercent }
+/**
+ * Turns a persona key (e.g. 'very-tight-aggressive') into a display label
+ * ('Very-Tight-Aggressive') -- matches poker/bots.py's own persona names
+ * exactly, just derived from the key instead of duplicating a lookup
+ * table that would drift from the backend's PERSONA_REGISTRY over time.
+ * @param {string} personaKey
+ * @returns {string}
+ */
+const formatPersonaLabel = (personaKey) =>
+    personaKey
+        .split('-')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('-')
+
+export { formatCurrency, formatPercent, formatPersonaLabel }
