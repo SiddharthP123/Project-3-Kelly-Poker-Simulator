@@ -227,6 +227,70 @@ def test_playing_to_completion_conserves_chips_and_resolves_the_hand(client, aut
         assert all(p['hole_cards'] is None for p in hand['players'] if not p['is_hero'])
 
 
+def test_multiway_all_in_produces_a_genuine_side_pot_end_to_end(client, auth_headers):
+    # Phase 5b's specific job: prove a genuine multi-layer side pot (not
+    # just a single equal-stack main pot) can actually form and resolve
+    # end-to-end through the HTTP API -- deal -> hero shoves all-in ->
+    # persistence -> reconstruction -> showdown -- not just re-prove the
+    # pot-layer math itself (poker/betting.py's own test suite already
+    # covers that exhaustively, including the exact worked $50/$120/$200
+    # example). Bot stacks are randomized (50-150 big blinds) per hand and
+    # not directly controllable through the API, and bots decide with
+    # live, unseeded equity -- so this can't be forced deterministically
+    # in one shot. Instead: give hero an enormous stack (so any calling
+    # bot is guaranteed to go all-in for less than hero's raise), shove
+    # preflop every hand, and retry fresh sessions/seeds until at least
+    # two DIFFERENT-starting-stack opponents are both observed all-in at
+    # showdown -- which is only possible if a real side-pot split ran.
+    for attempt in range(40):
+        session = _create_session(client, auth_headers, num_opponents=3, starting_bankroll=100_000.0)
+        hand = _deal(client, auth_headers, session['id'], seed=attempt)
+        # Recorded right after dealing, before hero's own action -- close
+        # enough to each opponent's true starting stack for a coarse
+        # "were these two stacks meaningfully different" comparison (off
+        # by at most one blind for the 2 seats that already posted one).
+        stacks_at_deal = {p['seat_index']: p['stack'] for p in hand['players']}
+        total_before = sum(stacks_at_deal.values()) + hand['pot_size']
+
+        shoved = False
+        guard = 0
+        while hand['street'] != 'complete':
+            guard += 1
+            assert guard < 20, 'hand did not resolve within 20 actions -- likely a real bug'
+            if not shoved:
+                bounds = hand['legal_action_bounds']
+                response = _act(
+                    client, auth_headers, session['id'], hand['id'], 'raise',
+                    raise_to=bounds['max_raise_to'],
+                )
+                shoved = True
+            else:
+                # Hero is all-in after shoving and can never be asked to
+                # act again -- this branch should be unreachable, but acts
+                # as a harmless fallback rather than a hard assumption.
+                response = _act(client, auth_headers, session['id'], hand['id'], 'call')
+            assert response.status_code == 200
+            hand = response.json()
+
+        total_after = sum(p['stack'] for p in hand['players'])
+        assert total_after == pytest.approx(total_before, abs=0.01)
+
+        all_in_opponents = [p for p in hand['players'] if p['all_in'] and not p['is_hero']]
+        distinct_stacks = {round(stacks_at_deal[p['seat_index']], 0) for p in all_in_opponents}
+        if len(all_in_opponents) >= 2 and len(distinct_stacks) >= 2:
+            # Found it: two different-sized stacks both went all-in and
+            # the hand still resolved correctly (chip-conserving) -- a
+            # single equal main pot couldn't have paid this out correctly,
+            # so a genuine layered side-pot split must have run.
+            return
+
+    pytest.fail(
+        'did not observe two different-stack-sized opponents both going '
+        'all-in within 40 attempts -- either genuinely unlucky or a real '
+        'regression in how side pots form through the API'
+    )
+
+
 def test_acting_on_an_already_resolved_hand_returns_400(client, auth_headers):
     session = _create_session(client, auth_headers)
     dealt = _deal(client, auth_headers, session['id'], seed=0)

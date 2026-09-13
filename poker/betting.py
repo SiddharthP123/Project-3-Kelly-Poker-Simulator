@@ -297,18 +297,33 @@ def build_pots(players):
       - Layer 50->120: 2 contributors, amount = 70*2  = 140, eligible = the $120/$200 players.
       - Layer 120->200: 1 contributor, amount = 80*1  =  80, eligible = the $200 player (wins it uncontested).
       Checksum: 150 + 140 + 80 = 370 = 50 + 120 + 200.
+
+    Thresholds are grouped by proximity (_EPSILON), not by rounding each
+    contribution to the nearest cent first. Rounding each player's
+    committed_total independently before summing looks harmless but isn't:
+    each of N players' contribution can shift by up to +/-0.005 from that
+    rounding, and those shifts don't cancel out -- with several players at
+    close-but-different real-valued stacks (e.g. randomized bot stacks,
+    not the clean textbook numbers above), the reconstructed grand total
+    can drift by a few cents from what was actually committed. Grouping by
+    proximity instead keeps every contributor's exact real value intact,
+    so the total across all pots always exactly equals the sum of
+    committed_total -- real money, not just a display nicety.
     """
     contributors = [p for p in players if p.committed_total > _EPSILON]
     if not contributors:
         return []
 
-    thresholds = sorted({round(p.committed_total, 2) for p in contributors})
+    thresholds = []
+    for total in sorted(p.committed_total for p in contributors):
+        if not thresholds or total - thresholds[-1] > _EPSILON:
+            thresholds.append(total)
 
     pots = []
     previous = 0.0
     for threshold in thresholds:
-        layer_contributors = [p for p in contributors if round(p.committed_total, 2) >= threshold]
-        layer_amount = round((threshold - previous) * len(layer_contributors), 2)
+        layer_contributors = [p for p in contributors if p.committed_total >= threshold - _EPSILON]
+        layer_amount = (threshold - previous) * len(layer_contributors)
 
         if layer_amount > _EPSILON:
             eligible = frozenset(

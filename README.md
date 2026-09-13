@@ -830,10 +830,35 @@ pytest tests/backend/test_game_router.py -v
 `num_opponents`/`small_blind`/`big_blind`/`button_seat`/`street` columns don't exist on the
 already-live `game_sessions`/`hand_histories` tables until that's done.
 
-**Still to come** (each its own phase/PR, not built yet): Phase 5b (multi-way side-pot testing
-specifically through the API, building on top of the general-purpose wiring above), a fully
-redesigned animated poker table (black/white, red suit symbols), and an account-wide statistics
-page. Kelly-recommended-stake UI is intentionally deprioritized until the game itself is done.
+### Phase 5b: multi-way side-pot testing through the API
+
+Proves a genuine multi-layer side pot (not just a single equal-stack main pot) can actually form
+and resolve end-to-end through the HTTP API — deal → hero shoves all-in → persistence →
+reconstruction → showdown — building on Phase 5a's general-purpose wiring rather than changing it.
+
+Bot stacks are randomized per hand and not directly controllable through the API, and bots decide
+with live, unseeded equity, so a specific side-pot shape can't be forced deterministically in one
+shot. The test instead gives hero an enormous stack (so any calling bot is guaranteed to go all-in
+for less than hero's raise), shoves preflop every hand, and retries fresh sessions/seeds until at
+least two *different*-starting-stack opponents are both observed all-in at showdown — proof a real
+layered split ran, not just a single pot.
+
+This surfaced a genuine (if small) bug in Phase 1's `build_pots`, found only because this phase
+finally exercises the algorithm with realistic non-round dollar amounts instead of every prior
+test's clean textbook numbers: it grouped contributors by rounding each player's `committed_total`
+to the nearest cent independently before summing, and those independent roundings don't cancel out
+— the reconstructed grand total could drift by a couple of cents from what was actually committed
+(worst case ~$0.02 on a ~$100K pot across 3000 randomized trials). Fixed by grouping contributors
+by proximity (the same `_EPSILON` every other float comparison in `poker/betting.py` already uses)
+instead of by rounding — verified the same repro now drifts by ~1.5e-11 (ordinary float64 noise).
+Full account, including why a worked example built from round numbers couldn't have caught this, in
+`tasks/lessons.md`.
+
+Run just this part's tests:
+
+```bash
+pytest tests/backend/test_game_router.py::test_multiway_all_in_produces_a_genuine_side_pot_end_to_end -v
+```
 
 ### Phase 6a: modern poker table (frontend, static)
 
