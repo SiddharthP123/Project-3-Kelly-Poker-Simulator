@@ -20,7 +20,7 @@
   - [x] Phase 3: expand `poker/bots.py` to 10 personas
   - [x] Phase 4: database schema (multi-street/multi-opponent hands)
   - [x] Phase 5a: backend wiring, heads-up-focused (`game_engine.py` + `routers/game.py`)
-  - [ ] Phase 5b: multi-way side-pot testing through the API
+  - [x] Phase 5b: multi-way side-pot testing through the API
   - [ ] Phase 6: modern animated poker table (frontend)
   - [ ] Phase 7: account-wide statistics page
   - [ ] Phase 8 (deprioritized): re-polish Kelly-recommended-stake UI
@@ -122,3 +122,12 @@ despite the workflow calling for it after each part.
   not a stub-bot unit test, surfaced it). 270 tests total (7 new: `pot_size_after`,
   `rebuild_hand_state` x3, plus the router suite fully rewritten for the new API). Manual migration
   step against live Render Postgres still not run -- needed before this is usable there.
+- **Part 12 Phase 5b** — added an API-level test proving a genuine multi-layer side pot forms and
+  resolves correctly end-to-end (deal -> shove all-in -> persist -> reconstruct -> showdown), using
+  randomized real-valued bot stacks instead of Phase 1's clean textbook numbers. This surfaced a
+  real (if small) rounding bug in `poker/betting.py`'s `build_pots` -- grouping contributors by
+  rounding each one's `committed_total` to the nearest cent independently let those roundings
+  compound into a multi-cent total drift on realistic stacks (never visible with round numbers).
+  Fixed by grouping by proximity (`_EPSILON`) instead; verified via a 3000-trial repro (max error
+  0.023 -> 1.5e-11) plus a new regression test with the exact failing values. 272 tests total (1
+  new API test + 1 regression test). Full account in `lessons.md`.

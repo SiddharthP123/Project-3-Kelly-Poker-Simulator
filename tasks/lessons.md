@@ -140,3 +140,35 @@
   itself is correct but not that every call site actually does X -- that needs either an explicit
   test of the call site under real, varied conditions, or a wrapper that makes doing X impossible
   to forget.
+
+---
+
+- **Date:** 2026-08-01
+- **Mistake:** `poker/betting.py`'s `build_pots` (Phase 1) grouped side-pot contributors by rounding
+  each player's `committed_total` to the nearest cent (`round(p.committed_total, 2)`) before
+  building layer thresholds. Every one of Phase 1's own tests used clean, textbook dollar amounts
+  ($50/$120/$200), so this rounding was invisible there -- but each of N players' contribution can
+  independently shift by up to +/-0.005 from that rounding, and those shifts don't cancel out. Phase
+  5b's API tests, which deliberately use realistic randomized bot stacks (not round numbers) to
+  force genuine multi-way side pots, hit real cases where the reconstructed grand total drifted by
+  a couple of cents from what was actually committed (~$0.02 on a ~$100K pot, in the worst case
+  found across 3000 randomized trials) -- an intermittent test failure that looked at first like a
+  reconstruction/persistence bug, until isolated down to `build_pots` itself with no DB/HTTP layer
+  involved at all.
+- **Correction:** Replaced the rounded-threshold grouping with proximity-based grouping
+  (`_EPSILON`, matching how every other float comparison in `poker/betting.py` already works) that
+  keeps each contributor's exact real value intact rather than rounding it away independently.
+  Verified the fix against the same 3000-trial repro: max error dropped from ~0.023 to ~1.5e-11
+  (ordinary float64 noise). Added a regression test in `tests/test_betting.py` using the exact
+  values from a real failing case.
+- **Lesson:** A worked-example test built entirely from clean round numbers can fully verify an
+  algorithm's *logic* while completely hiding a *rounding* bug in its implementation -- `round(x, 2)`
+  looks like an obviously-safe defensive habit for money, but rounding each of several independent
+  inputs separately before summing them is a different (and real) source of error than rounding a
+  single final output for display. Once Phase 5b started feeding the same, already-correct
+  algorithm real-valued (non-round) inputs -- the realistic case this whole part exists to
+  exercise -- the bug surfaced immediately.
+- **Applied To:** `poker/betting.py`'s `build_pots` -- any future money-grouping logic in this
+  project should default to proximity-based (`_EPSILON`) comparison over intermediate rounding,
+  and reserve `round(x, 2)` for the final step where a number is actually displayed/persisted, not
+  for grouping or accumulation along the way.

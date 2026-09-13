@@ -339,6 +339,31 @@ def test_worked_example_three_way_all_in_50_120_200():
     assert sum(pot.amount for pot in pots) == 50.0 + 120.0 + 200.0
 
 
+def test_build_pots_conserves_exact_totals_with_non_round_real_valued_stacks():
+    # Regression test: build_pots used to group contributors by rounding
+    # each one's committed_total to the nearest cent BEFORE summing --
+    # each of N players' contribution could shift by up to +/-0.005 from
+    # that rounding, and those shifts don't cancel out. With several
+    # players at close-but-different real-valued stacks (not the clean
+    # textbook $50/$120/$200 above), the reconstructed grand total could
+    # drift by a few cents from what was actually committed -- discovered
+    # via Phase 5b's randomized-bot-stack API tests, not caught by any
+    # fixed-round-number worked example. These specific values are drawn
+    # from an actual failing case (5 players, several close but distinct
+    # non-round stacks) that used to mis-total by ~$0.02.
+    players = [
+        PlayerState(seat=0, stack=0.0, committed_total=251.59088058806083, status=PlayerStatus.ALL_IN),
+        PlayerState(seat=1, stack=0.0, committed_total=149.78335005859267, status=PlayerStatus.ALL_IN),
+        PlayerState(seat=2, stack=0.0, committed_total=182.114316166169, status=PlayerStatus.ALL_IN),
+        PlayerState(seat=3, stack=0.0, committed_total=200.25494427372172, status=PlayerStatus.ALL_IN),
+    ]
+    total_committed = sum(p.committed_total for p in players)
+
+    pots = build_pots(players)
+
+    assert sum(pot.amount for pot in pots) == pytest.approx(total_committed, abs=1e-9)
+
+
 def test_folded_players_contribute_to_pot_amount_but_are_never_eligible():
     # seat 0's folded $50 is less than seats 1/2's $100 -- a real
     # threshold split, so this is two layers, not one. Both layers share
