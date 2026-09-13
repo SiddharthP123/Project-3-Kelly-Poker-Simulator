@@ -39,7 +39,7 @@ solid and tested before any API or UI is built on top of it.
 | 9 | Authentication & Security | ✅ Done |
 | 10 | Frontend (React) | ✅ Done |
 | 11 | Deployment | ✅ Done |
-| 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | 🔄 In progress |
+| 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
 
 ## Setup
 
@@ -936,7 +936,32 @@ Run just this part's tests:
 cd frontend && npm run test -- animated-card poker-table
 ```
 
-**Still to come**: an account-wide statistics page (Phase 7).
+## Part 12 Phase 7: account-wide statistics page
+
+An aggregation across every session a user has ever played, distinct from the existing
+per-session dashboard (Part 10), which only ever looks at one session at a time.
+
+- **`GET /api/users/me/stats`** (new) — `compute_user_stats` fetches every one of the user's
+  `HandPlayer` rows for completed hands in two flat queries (not N+1 per hand), then groups them
+  by `hand_history_id` in Python. Knowing hero won isn't enough on its own to know whether it was
+  an outright win or a split — that depends on how many *other* seats in the same hand also have
+  `is_winner=True`, which is why this needs every seat's row, not just hero's.
+  `cumulative_bankroll_change` sums each session's own already-persisted `(current_bankroll -
+  starting_bankroll)` directly, rather than re-deriving it from individual hand deltas — the
+  session row is already the authoritative source, and stays correct even with a hand still in
+  progress. `biggest_win`/`biggest_loss` are `None` (not `0`) when there's no hand of that kind yet
+  — "never won" and "won exactly $0 once" are different facts.
+- **`StatsPage`** (new, at `/stats`, linked from the header) — reshapes the backend's flat
+  `win_count`/`win_rate`-style fields into the nested `{count, pct}` shape the existing
+  `WinRateSummary` component already expects, reusing it as-is rather than teaching it a second
+  shape.
+
+Run just this part's tests:
+
+```bash
+pytest tests/backend/test_user_stats_router.py -v
+cd frontend && npm run test -- stats-page
+```
 
 ## Part 12 Phase 8: re-polish Kelly-recommended-stake UI
 
@@ -977,3 +1002,7 @@ Run just this part's tests:
 pytest tests/backend/test_game_router.py -k "equity or kelly_stake" -v
 cd frontend && npm run test -- poker-table
 ```
+
+Part 12 (all 8 phases) is now complete — the full multi-street, multi-opponent poker engine, backend
+wiring, animated frontend, account-wide stats, and live Kelly-recommended sizing are all built and
+tested end to end.

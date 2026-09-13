@@ -15,7 +15,7 @@ from slowapi.util import get_remote_address
 from backend.config import settings
 from backend.middleware import SecurityHeadersMiddleware
 from backend.rate_limit import limiter
-from backend.routers import auth, bots, equity, ev, game, hand_evaluator, health, kelly
+from backend.routers import auth, bots, equity, ev, game, hand_evaluator, health, kelly, users
 
 # Basic stdout logging so the security-event log calls throughout backend/
 # (failed logins, rejected tokens, rate limit hits) actually go somewhere
@@ -51,3 +51,4 @@ app.include_router(kelly.router, prefix='/api')
 app.include_router(hand_evaluator.router, prefix='/api')
 app.include_router(bots.router, prefix='/api')
 app.include_router(game.router, prefix='/api')
+app.include_router(users.router, prefix='/api')
