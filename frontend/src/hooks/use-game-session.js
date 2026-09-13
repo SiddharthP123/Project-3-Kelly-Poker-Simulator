@@ -22,11 +22,11 @@ const setStoredSessionId = (sessionId) => {
 }
 
 const useGameSession = () => {
-    const createSession = useCallback(async ({ botPersona, startingBankroll, kellyMultiplier }) => {
+    const createSession = useCallback(async ({ numOpponents, startingBankroll, kellyMultiplier }) => {
         const session = await apiRequest('/game/sessions', {
             method: 'POST',
             body: {
-                bot_persona: botPersona,
+                num_opponents: numOpponents,
                 starting_bankroll: startingBankroll || null,
                 kelly_multiplier: kellyMultiplier || null,
             },

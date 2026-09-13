@@ -5,26 +5,32 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatCurrency } from '@/lib/format'
 
-const ActionControls = ({ betToCall, bankroll, suggestedRaiseAmount, onAct, isSubmitting }) => {
-    // The Kelly-recommended stake can be at or below betToCall (that's
-    // exactly the "call, don't raise" zone) -- pre-filling the raise
-    // input with an amount that's guaranteed to fail validation would be
-    // a confusing default, so the suggestion is floored at the minimum
-    // valid raise instead.
-    const [raiseAmount, setRaiseAmount] = useState(() =>
-        String(Math.max(Math.round(suggestedRaiseAmount), betToCall + 1)),
-    )
+/**
+ * legalActionBounds: the backend's own ActionBounds for hero's current
+ * decision (can_fold, can_check, can_call, call_amount, can_raise,
+ * min_raise_to, max_raise_to) -- every number here already reflects the
+ * real engine state (current bet, hero's actual stack), so this
+ * component only needs to render exactly what it's given, not
+ * recompute any of it.
+ */
+const ActionControls = ({ legalActionBounds, onAct, isSubmitting }) => {
+    const { can_fold, can_check, can_call, call_amount, can_raise, min_raise_to, max_raise_to } =
+        legalActionBounds
+
+    const [raiseTo, setRaiseTo] = useState(() => String(Math.ceil(min_raise_to)))
     const [validationError, setValidationError] = useState('')
 
-    const handleRaise = () => {
-        const amount = Number(raiseAmount)
+    const handleCheckOrCall = () => onAct('call')
 
-        if (!amount || amount <= betToCall) {
-            setValidationError(`Raise must be more than ${formatCurrency(betToCall)}`)
+    const handleRaise = () => {
+        const amount = Number(raiseTo)
+
+        if (!amount || amount < min_raise_to) {
+            setValidationError(`Raise must be at least ${formatCurrency(min_raise_to)}`)
             return
         }
-        if (amount > bankroll) {
-            setValidationError('Raise cannot exceed your bankroll')
+        if (amount > max_raise_to) {
+            setValidationError(`Raise cannot exceed ${formatCurrency(max_raise_to)} (your stack)`)
             return
         }
 
@@ -33,32 +39,50 @@ const ActionControls = ({ betToCall, bankroll, suggestedRaiseAmount, onAct, isSu
     }
 
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-white/15 bg-black/60 p-4">
             <div className="flex gap-2">
-                <Button variant="destructive" disabled={isSubmitting} onClick={() => onAct('fold')}>
-                    Fold
-                </Button>
-                <Button variant="secondary" disabled={isSubmitting} onClick={() => onAct('call')}>
-                    Call {formatCurrency(betToCall)}
-                </Button>
+                {can_fold && (
+                    <Button variant="destructive" disabled={isSubmitting} onClick={() => onAct('fold')}>
+                        Fold
+                    </Button>
+                )}
+                {(can_check || can_call) && (
+                    <Button variant="secondary" disabled={isSubmitting} onClick={handleCheckOrCall}>
+                        {can_check ? 'Check' : `Call ${formatCurrency(call_amount)}`}
+                    </Button>
+                )}
             </div>
-            <div className="flex items-end gap-2">
-                <div className="flex flex-1 flex-col gap-2">
-                    <Label htmlFor="raise-amount">Raise to</Label>
-                    <Input
-                        id="raise-amount"
-                        type="number"
-                        min={betToCall + 1}
-                        max={bankroll}
-                        value={raiseAmount}
-                        onChange={(event) => setRaiseAmount(event.target.value)}
-                    />
+
+            {can_raise && (
+                <div className="flex items-end gap-2">
+                    <div className="flex flex-1 flex-col gap-2">
+                        <Label htmlFor="raise-amount" className="text-white/70">
+                            Raise to
+                        </Label>
+                        <Input
+                            id="raise-amount"
+                            type="number"
+                            min={min_raise_to}
+                            max={max_raise_to}
+                            value={raiseTo}
+                            onChange={(event) => setRaiseTo(event.target.value)}
+                            className="text-white placeholder:text-white/40"
+                        />
+                    </div>
+                    <Button
+                        variant="outline"
+                        disabled={isSubmitting}
+                        onClick={() => setRaiseTo(String(max_raise_to))}
+                    >
+                        All-in
+                    </Button>
+                    <Button disabled={isSubmitting} onClick={handleRaise}>
+                        Raise
+                    </Button>
                 </div>
-                <Button disabled={isSubmitting} onClick={handleRaise}>
-                    Raise
-                </Button>
-            </div>
-            {validationError && <p className="text-sm text-destructive">{validationError}</p>}
+            )}
+
+            {validationError && <p className="text-sm text-red-500">{validationError}</p>}
         </div>
     )
 }

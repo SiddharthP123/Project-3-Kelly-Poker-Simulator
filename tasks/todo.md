@@ -21,7 +21,8 @@
   - [x] Phase 4: database schema (multi-street/multi-opponent hands)
   - [x] Phase 5a: backend wiring, heads-up-focused (`game_engine.py` + `routers/game.py`)
   - [x] Phase 5b: multi-way side-pot testing through the API
-  - [ ] Phase 6: modern animated poker table (frontend)
+  - [x] Phase 6a: modern poker table, static (frontend)
+  - [ ] Phase 6b: dealing/flip/chip animations (needs Framer Motion sign-off)
   - [ ] Phase 7: account-wide statistics page
   - [ ] Phase 8 (deprioritized): re-polish Kelly-recommended-stake UI
 
@@ -131,3 +132,15 @@ despite the workflow calling for it after each part.
   Fixed by grouping by proximity (`_EPSILON`) instead; verified via a 3000-trial repro (max error
   0.023 -> 1.5e-11) plus a new regression test with the exact failing values. 272 tests total (1
   new API test + 1 regression test). Full account in `lessons.md`.
+- **Part 12 Phase 6a** — rewrote the game screen for 1-4 opponents/multi-street play against Phase
+  5's API: new `Seat`/`getSeatPosition` components, an oval table with a progressively-revealed
+  5-slot board, `ActionControls` rewritten around the backend's own `legal_action_bounds` object,
+  `HandResultBanner` rewritten for a `winners[]` list instead of one fixed label. Adapted (not
+  redesigned) the existing per-session dashboard/hand-history-table to the new `players[]`/
+  `winners[]` shape so the app keeps working end-to-end; dropped its "Equity" column (not in the
+  new API response, matching the Kelly UI's deferral). Deliberately black/white/red regardless of
+  the app's own theme toggle -- a felt table doesn't "go light mode." No animations yet (Phase 6b,
+  needs a Framer Motion dependency sign-off first). Verified via the full component suite (33
+  tests) + oxlint + a production build -- **not** visually verified in a real browser this session
+  (no browser tooling available); worth a manual pass before calling this phase fully done, per the
+  Part 10 lesson that unit tests alone missed two real UI bugs.

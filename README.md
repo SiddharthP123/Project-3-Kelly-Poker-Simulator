@@ -860,6 +860,52 @@ Run just this part's tests:
 pytest tests/backend/test_game_router.py::test_multiway_all_in_produces_a_genuine_side_pot_end_to_end -v
 ```
 
-**Still to come** (each its own phase/PR, not built yet): a fully redesigned animated poker table
-(black/white, red suit symbols) and an account-wide statistics page. Kelly-recommended-stake UI is
-intentionally deprioritized until the game itself is done.
+### Phase 6a: modern poker table (frontend, static)
+
+Rewrites the game screen for 1-4 opponents and real multi-street play against Phase 5's API,
+replacing Parts 8-10's single fixed-pot heads-up view. Deliberately black/white — only suit glyphs
+use color (red for hearts/diamonds, matching real card conventions), everything else on the table
+itself is grayscale regardless of the app's own light/dark theme toggle, since a felt table doesn't
+"go light mode." No animations yet — that's Phase 6b, which needs a new dependency (Framer Motion)
+and its own explicit sign-off before it starts, per the Part 12 plan.
+
+- **`PokerTable`** — an oval "felt" surface (seats arranged around it via `getSeatPosition`, a
+  small lookup table keyed by opponent count) with the community board centered — 5 slots always
+  rendered, undealt ones shown as empty dashed placeholders so "how many streets have run" reads at
+  a glance even without animation. A single `hand` (the backend's `HandResponse`) is the only state
+  that matters now — its own `street` field distinguishes "hero has a decision" from "hand is over,"
+  replacing the old `pendingHand`/`resolvedHand` split.
+- **`Seat`** (new) — one seat's persona label, live stack, and hole cards. Redaction is entirely
+  the backend's job (`hole_cards` is `null` until a seat's earned the right to be seen) — this
+  component only decides *how* to render what it's given: face-down placeholders for a hidden
+  non-hero seat, nothing at all for a folded seat (mucked, not still face-down on the table).
+- **`ActionControls`** — rewritten around the backend's own `legal_action_bounds` object directly
+  (`can_fold`/`can_check`/`can_call`/`call_amount`/`can_raise`/`min_raise_to`/`max_raise_to`)
+  instead of a single fixed `betToCall` — labels itself "Check" vs. "Call $X" based on
+  `can_check`, and bounds the raise input by the real `min_raise_to`/`max_raise_to` rather than a
+  client-side guess. An "All-in" shortcut fills the raise field with `max_raise_to`.
+- **`HandResultBanner`** — rewritten for `winners: [seat_index, ...]` instead of a single fixed
+  `hero`/`opponent`/`split` label, since 1-4 opponents means any number of winners is possible (a
+  split, or a side pot won uncontested by a seat who wasn't even eligible for the whole pot).
+- The existing per-session dashboard (`hand-history-table.jsx`, `compute-win-rate.js`) is adapted
+  — not redesigned — to the new `players[]`/`winners[]` shape so the app keeps working end-to-end;
+  its "Equity" column is dropped (that data isn't in the new API response at all, matching the
+  Kelly UI's explicit deferral).
+- `SessionSetupForm`/`useGameSession` now send `num_opponents` (1-4) instead of `bot_persona` —
+  personas are randomly assigned server-side, not chosen here.
+
+Run just this part's tests:
+
+```bash
+cd frontend && npm run test
+```
+
+**Could not be visually verified in a browser this session** (no browser tooling available) —
+verified via the full component test suite (33 tests, including rewritten `action-controls`/
+`poker-table` suites against the new API shapes), `oxlint`, and a production `vite build`, but not
+by actually looking at the rendered table. Worth a manual pass in a real browser before considering
+this phase fully done, per this project's own established lesson (Part 10's two real UI bugs both
+shipped past passing unit tests and were only caught by manual browser testing).
+
+**Still to come**: Phase 6b (Framer Motion dealing/flip/chip animations on top of this layout —
+needs its own dependency sign-off before it starts) and an account-wide statistics page.

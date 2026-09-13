@@ -65,7 +65,8 @@ const LobbyPage = () => {
                         <CardHeader>
                             <CardTitle>Resume your session</CardTitle>
                             <CardDescription>
-                                Playing against {activeSession.bot_persona} &mdash;{' '}
+                                {activeSession.num_opponents} opponent
+                                {activeSession.num_opponents > 1 ? 's' : ''} &mdash;{' '}
                                 {formatCurrency(activeSession.current_bankroll)} bankroll
                             </CardDescription>
                         </CardHeader>
