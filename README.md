@@ -40,6 +40,7 @@ solid and tested before any API or UI is built on top of it.
 | 10 | Frontend (React) | ✅ Done |
 | 11 | Deployment | ✅ Done |
 | 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
+| 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | 🚧 In progress |
 
 ## Setup
 
@@ -793,8 +794,9 @@ process.
 
 - `POST /sessions` takes `num_opponents` (1-4), `small_blind`/`big_blind` instead of `bot_persona`
   — personas are randomly assigned per opponent seat via `assign_opponent_personas` and stored in
-  the new `game_session_opponents` table. Bots get a randomized per-hand stack (50-150 big blinds),
-  reset every hand — only hero's `current_bankroll` persists across hands.
+  the new `game_session_opponents` table. Bots get a randomized per-hand stack (50-150 big blinds
+  originally; scaled off hero's own bankroll as of Part 13 Phase 2), reset every hand — only hero's
+  `current_bankroll` persists across hands.
 - Two small but load-bearing changes to already-merged Phase 1/2 code, both re-verified against
   their full existing test suites afterward: `poker/hand_flow.py` now deals the whole 5-card board
   once, upfront (`HandState.board` is a property slicing it by street) rather than street-by-street
@@ -1006,3 +1008,59 @@ cd frontend && npm run test -- poker-table
 Part 12 (all 8 phases) is now complete — the full multi-street, multi-opponent poker engine, backend
 wiring, animated frontend, account-wide stats, and live Kelly-recommended sizing are all built and
 tested end to end.
+
+## Part 13: Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics
+
+Hands-on feedback from actually playing the deployed Part 12 app drives this part: visual/layout
+requests for the table, a missing "what did the opponent just do" indicator, real interaction
+latency, a game-balance question about starting stacks, and two new features (a deeper profile
+section, richer stats with a play-style spider chart). Same pattern as Part 12 — each phase gets
+its own check-in before starting.
+
+### Phase 1: table redesign + opponent action display
+
+Frontend-only, in `frontend/src/components/poker/`.
+
+- **`PokerTable`** — green felt (was black/zinc), a much smaller fixed corner radius (was a full
+  pill/stadium shape), and a wider container (`max-w-3xl` → `max-w-6xl`). The felt/seats/board now
+  render even before any hand is dealt — outlined seat/board placeholders built from
+  `session.opponents`, so the table reads as a real table waiting for a hand instead of a blank
+  area with just a "Deal hand" button (now an overlay on top of that, not a full replacement for
+  it). Restructured into two columns: the felt on the left, a new right-side panel with hero's hole
+  cards enlarged, hero's stack, `KellyStakePanel`, and `ActionControls` grouped together.
+- **`Seat`** — gains a transient per-seat action label ("Folds" / "Checks" / "Calls $X" /
+  "Raises +$X" / "Posts $X"), sourced from `hand.actions` (already returned by `deal`/`act`,
+  never previously rendered) and cleared again after ~1.5s. A brand-new hand (a fresh deal, or the
+  hand recovered on page load) doesn't flash its own setup/blind actions as toasts — only a later
+  response for the *same* hand (an `act` call resolving bot turns and/or hero's own action) does.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- poker-table
+```
+
+### Phase 2: bot stack balancing + performance
+
+Both in `backend/services/game_engine.py`.
+
+- **Bot stack balancing** — `deal_hand` previously sampled each bot's per-hand stack from a fixed
+  50-150 big-blind band with no relationship to hero's own bankroll. `_sample_opponent_stack_bb`
+  (new) instead centers that sample on hero's own current bankroll (in big blinds): a deep hero
+  now sits across from a deep-feeling table, and a hero who's busted down to a short stack no
+  longer faces bots several times their size. The floor/ceiling (`BOT_STACK_BASELINE_FLOOR_BB` =
+  10, `BOT_STACK_BASELINE_CEILING_BB` = 300) clamp the *baseline* hero's-bankroll-in-BB the 0.5x-1.5x
+  fraction range is centered on, not the final sampled stack directly — clamping the final value
+  instead would collapse every bot to the exact same number once hero's bankroll is deep enough to
+  blow past the ceiling, which defeats the entire "randomized" premise (this surfaced immediately
+  against `test_multiway_all_in_produces_a_genuine_side_pot_end_to_end`'s enormous-hero-bankroll
+  setup, which needs genuinely different-sized bot stacks to prove a real side pot formed).
+- **Performance** — `HERO_NUM_SIMULATIONS` (the live equity/Kelly simulation count shown to and
+  decided on by hero, wired up in Part 12 Phase 8) lowered from 3000 to 1000. Bots' own
+  `DEFAULT_BOT_NUM_SIMULATIONS` (750, in `poker/hand_flow.py`) is untouched.
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_game_router.py -v
+```
