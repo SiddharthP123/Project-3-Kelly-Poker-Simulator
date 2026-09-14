@@ -16,6 +16,9 @@ const AppHeader = () => {
                     <Link to="/stats" className="hover:text-foreground">
                         Stats
                     </Link>
+                    <Link to="/profile" className="hover:text-foreground">
+                        Profile
+                    </Link>
                     <span>{user.display_name || user.email}</span>
                     <Button variant="outline" size="sm" onClick={logout}>
                         Log out

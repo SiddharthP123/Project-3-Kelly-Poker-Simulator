@@ -70,4 +70,73 @@ def test_me_returns_the_authenticated_user(client):
     body = response.json()
     assert body['email'] == 'me@example.com'
     assert body['display_name'] == 'Sid'
+    assert body['bio'] is None
+    assert body['avatar_url'] is None
     assert 'hashed_password' not in body
+
+
+def test_update_me_requires_a_token(client):
+    response = client.patch('/api/auth/me', json={'display_name': 'New Name'})
+    assert response.status_code == 401
+
+
+def test_update_me_persists_display_name_bio_and_avatar_url(client):
+    signup = client.post('/api/auth/signup', json={'email': 'profile@example.com', 'password': 'correct-horse'})
+    token = signup.json()['access_token']
+    headers = {'Authorization': f'Bearer {token}'}
+
+    response = client.patch(
+        '/api/auth/me',
+        headers=headers,
+        json={
+            'display_name': 'New Name',
+            'bio': 'I like poker and the Kelly Criterion.',
+            'avatar_url': 'https://example.com/avatar.png',
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body['display_name'] == 'New Name'
+    assert body['bio'] == 'I like poker and the Kelly Criterion.'
+    assert body['avatar_url'] == 'https://example.com/avatar.png'
+
+    # Persisted, not just echoed back -- a fresh GET sees the same values.
+    refetched = client.get('/api/auth/me', headers=headers)
+    assert refetched.json()['display_name'] == 'New Name'
+    assert refetched.json()['bio'] == 'I like poker and the Kelly Criterion.'
+
+
+def test_update_me_treats_blank_strings_as_clearing_the_field(client):
+    signup = client.post(
+        '/api/auth/signup',
+        json={'email': 'clear@example.com', 'password': 'correct-horse', 'display_name': 'Sid'},
+    )
+    token = signup.json()['access_token']
+    headers = {'Authorization': f'Bearer {token}'}
+    client.patch('/api/auth/me', headers=headers, json={'bio': 'temporary bio'})
+
+    response = client.patch('/api/auth/me', headers=headers, json={'display_name': '  ', 'bio': ''})
+    assert response.status_code == 200
+    body = response.json()
+    assert body['display_name'] is None
+    assert body['bio'] is None
+
+
+def test_update_me_rejects_an_over_length_bio(client):
+    signup = client.post('/api/auth/signup', json={'email': 'longbio@example.com', 'password': 'correct-horse'})
+    token = signup.json()['access_token']
+
+    response = client.patch(
+        '/api/auth/me', headers={'Authorization': f'Bearer {token}'}, json={'bio': 'x' * 501},
+    )
+    assert response.status_code == 422
+
+
+def test_update_me_rejects_unknown_fields(client):
+    signup = client.post('/api/auth/signup', json={'email': 'strict@example.com', 'password': 'correct-horse'})
+    token = signup.json()['access_token']
+
+    response = client.patch(
+        '/api/auth/me', headers={'Authorization': f'Bearer {token}'}, json={'email': 'new@example.com'},
+    )
+    assert response.status_code == 422

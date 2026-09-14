@@ -68,4 +68,31 @@ describe('useAuth', () => {
         expect(getStoredToken()).toBeNull()
         expect(result.current.user).toBeNull()
     })
+
+    it('updateProfile PATCHes /auth/me and refreshes the shared user', async () => {
+        global.fetch
+            .mockResolvedValueOnce(jsonResponse({ access_token: 'tok123', token_type: 'bearer' }))
+            .mockResolvedValueOnce(jsonResponse({ id: 1, email: 'me@example.com', display_name: null }))
+
+        const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
+        await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+        await act(async () => {
+            await result.current.login('me@example.com', 'password123')
+        })
+
+        global.fetch.mockResolvedValueOnce(
+            jsonResponse({ id: 1, email: 'me@example.com', display_name: 'Sid', bio: 'Hi' }),
+        )
+
+        let returned
+        await act(async () => {
+            returned = await result.current.updateProfile({ display_name: 'Sid', bio: 'Hi', avatar_url: null })
+        })
+
+        const [, requestInit] = global.fetch.mock.calls.at(-1)
+        expect(requestInit.method).toBe('PATCH')
+        expect(returned.display_name).toBe('Sid')
+        expect(result.current.user.display_name).toBe('Sid')
+    })
 })

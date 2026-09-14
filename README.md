@@ -1064,3 +1064,29 @@ Run just this phase's tests:
 ```bash
 pytest tests/backend/test_game_router.py -v
 ```
+
+### Phase 3: profile page
+
+- **`users` table** gains nullable `bio`/`avatar_url` columns (`backend/models/user.py`; see
+  `backend/migrations/0002_part13_profile_columns.sql` for the manual step a live database needs).
+  `avatar_url` is a pasted image URL, not a real upload — this project has no file/object storage
+  set up, and adding one is a meaningfully bigger scope than a profile page warrants.
+- **`PATCH /auth/me`** (new, `backend/routers/auth.py`) updates `display_name`/`bio`/`avatar_url`
+  for the current user. It's a full-form save, not a partial patch — the frontend always submits
+  all three fields together, so `UpdateProfileRequest` (new, `backend/schemas/auth.py`) treats a
+  blank field as *clearing* that column (a `blank_to_none` validator turns an empty string into a
+  real `NULL`) rather than leaving it untouched.
+- **`ProfilePage`** (new, `/profile`, linked from `AppHeader`) — edits display name/bio/avatar URL
+  via a new `updateProfile` action on `AuthContext` (which also refreshes the shared `user`, so
+  `AppHeader`'s display name updates immediately), plus a read-only snapshot of the same
+  account-wide stats `/stats` already shows (Part 12 Phase 7's `GET /users/me/stats`, reused rather
+  than duplicated). The avatar preview falls back to an initials circle both when no URL is set and
+  when a set URL fails to load (`onError`) — a broken pasted link is a real, expected case here, not
+  just a hypothetical one.
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_auth_router.py -v
+cd frontend && npm run test -- profile-page use-auth
+```
