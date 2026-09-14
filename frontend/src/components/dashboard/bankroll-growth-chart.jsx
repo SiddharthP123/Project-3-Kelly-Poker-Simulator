@@ -22,6 +22,12 @@ const chartConfig = {
     },
 }
 
+// startingBankroll is optional -- the per-session dashboard (Part 10)
+// passes it for a single dashed reference line, but an account-wide
+// series (Part 13 Phase 4, spanning every session) has no single
+// "starting" value to mark (each session resets to its own), so that
+// chart just omits the prop rather than picking one session's value
+// arbitrarily.
 const BankrollGrowthChart = ({ series, startingBankroll }) => {
     if (series.length === 0) {
         return <p className="text-sm text-muted-foreground">No bankroll history yet.</p>
@@ -37,7 +43,9 @@ const BankrollGrowthChart = ({ series, startingBankroll }) => {
                     width={80}
                     tickFormatter={(value) => formatCurrency(value)}
                 />
-                <ReferenceLine y={startingBankroll} stroke="var(--muted-foreground)" strokeDasharray="4 4" />
+                {startingBankroll != null && (
+                    <ReferenceLine y={startingBankroll} stroke="var(--muted-foreground)" strokeDasharray="4 4" />
+                )}
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line type="monotone" dataKey="bankroll" stroke="var(--color-bankroll)" strokeWidth={2} dot={false} />
             </LineChart>

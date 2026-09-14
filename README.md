@@ -1090,3 +1090,49 @@ Run just this phase's tests:
 pytest tests/backend/test_auth_router.py -v
 cd frontend && npm run test -- profile-page use-auth
 ```
+
+### Phase 4: play-style analytics, spider chart, account-wide bankroll chart
+
+- **`compute_user_stats`** (`backend/services/user_stats.py`) gains two play-style metrics, computed
+  empirically from hero's own persisted `HandAction` rows (hero always occupies `seat_index == 0` --
+  `poker/hand_flow.py` hardcodes `hero_seat=0` -- so no join to `HandPlayer` is needed) rather than a
+  fixed threshold: the same tight/loose and passive/aggressive axes `poker/bots.py`'s personas are
+  built from.
+  - **`vpip_rate`** ("voluntarily put money in pot") -- the fraction of hands where hero called or
+    raised preflop, as opposed to folding or only ever checking a free option (a forced blind isn't
+    voluntary, and a zero-amount preflop `match` is a free check -- neither counts).
+  - **`aggression_factor`** -- the standard poker HUD raises-to-calls ratio across every street. A
+    check (`match` with `amount == 0`) is excluded from the denominator entirely. `None` (not `0` or
+    infinity) until hero has made a real call -- not enough data for a ratio yet, the same "no data"
+    convention `biggest_win`/`biggest_loss` already use.
+  - **`bankroll_history`** -- every `BankrollLog` row across every one of the user's sessions,
+    chronologically, alongside the existing per-session-only chart from Part 10. A session boundary
+    shows up here as a real jump back to that session's own `starting_bankroll`, not something
+    smoothed over -- each session genuinely is its own scoped bankroll, per this project's
+    Kelly-Criterion premise.
+- **`PlayStyleRadarChart`** (new, `frontend/src/components/dashboard/`) -- a `recharts` `RadarChart`
+  (already a dependency, no new package needed) combining the two new metrics with two Part 12 Phase
+  7 already computes (`win_rate`/`fold_rate`, reused rather than duplicated), all normalized to a
+  shared 0-100 scale. `aggression_factor` is unbounded, so it's capped for this chart's display only
+  (`AGGRESSION_FACTOR_DISPLAY_CAP = 3`) -- the raw ratio is still shown as plain text elsewhere,
+  unclamped. Rendered on both `StatsPage` and `ProfilePage`.
+- **`BankrollGrowthChart`**'s `startingBankroll` prop is now optional -- the per-session dashboard
+  still passes it for a dashed reference line, but the new account-wide chart on `StatsPage` (fed by
+  the same `computeBankrollSeries` helper, just given `bankroll_history` instead of one session's
+  log) has no single "starting" value to mark, so it omits the prop instead of picking one session's
+  value arbitrarily.
+- **Fixed a real, flaky test-suite bug** this phase's new test file exposed: `npm run test`'s
+  `NODE_OPTIONS="--localstorage-file=..."` flag (needed because jsdom's own `localStorage` throws
+  without it) backs `localStorage` with a single real file shared by every worker *thread* in the
+  process, not a separate store per test file -- so two test files running in parallel could race
+  (one file's `localStorage.clear()` wiping another file's just-set auth token before that file's
+  own render ever read it). `vitest.config.js` now sets `fileParallelism: false`; confirmed the
+  previously-observed flake in `profile-page.test.jsx`/`use-auth.test.jsx` across 6 repeated full
+  suite runs (0 failures, versus intermittent failures before).
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_user_stats_router.py -v
+cd frontend && npm run test -- play-style-radar-chart stats-page profile-page
+```

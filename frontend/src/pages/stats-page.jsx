@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 
+import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-chart'
+import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
 import { AppHeader } from '@/components/layout/app-header'
 import { useUserStats } from '@/hooks/use-user-stats'
+import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { formatCurrency } from '@/lib/format'
 
 /**
@@ -105,6 +108,27 @@ const StatsPage = () => {
                         <section className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">Win rate</h2>
                             <WinRateSummary winRate={winRate} />
+                        </section>
+
+                        <section className="flex flex-col gap-3">
+                            <h2 className="text-lg font-semibold">Play style</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                <StatTile label="VPIP" value={`${(stats.vpip_rate * 100).toFixed(1)}%`} />
+                                <StatTile
+                                    label="Aggression factor"
+                                    value={stats.aggression_factor != null ? stats.aggression_factor.toFixed(2) : '—'}
+                                />
+                            </div>
+                            <PlayStyleRadarChart stats={stats} />
+                        </section>
+
+                        <section className="flex flex-col gap-3">
+                            <h2 className="text-lg font-semibold">Bankroll over time</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Every session, chronologically -- a jump back down is a new session starting at its
+                                own bankroll, not a loss.
+                            </p>
+                            <BankrollGrowthChart series={computeBankrollSeries(stats.bankroll_history)} />
                         </section>
                     </>
                 )}
