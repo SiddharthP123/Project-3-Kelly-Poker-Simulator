@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import User
-from backend.rate_limit import AUTH_LIMIT, READS_LIMIT, limiter
-from backend.schemas.auth import LoginRequest, SignupRequest, TokenResponse, UserResponse
+from backend.rate_limit import AUTH_LIMIT, READS_LIMIT, WRITES_LIMIT, limiter
+from backend.schemas.auth import LoginRequest, SignupRequest, TokenResponse, UpdateProfileRequest, UserResponse
 from backend.security import create_access_token, get_current_user, hash_password, verify_password
 
 logger = logging.getLogger(__name__)
@@ -64,4 +64,21 @@ def login(request: Request, response: Response, body: LoginRequest, db: Session 
 @router.get('/me', response_model=UserResponse)
 @limiter.limit(READS_LIMIT)
 def get_me(request: Request, response: Response, current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch('/me', response_model=UserResponse)
+@limiter.limit(WRITES_LIMIT)
+def update_me(
+    request: Request,
+    response: Response,
+    body: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.display_name = body.display_name
+    current_user.bio = body.bio
+    current_user.avatar_url = body.avatar_url
+    db.commit()
+    db.refresh(current_user)
     return current_user

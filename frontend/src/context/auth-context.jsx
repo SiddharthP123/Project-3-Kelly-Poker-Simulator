@@ -61,8 +61,17 @@ const AuthProvider = ({ children }) => {
         setUser(null)
     }, [])
 
+    // Returns the updated user (ProfilePage reads it straight from here for
+    // its own "saved" state) while also refreshing the shared `user` so
+    // AppHeader's display name updates immediately, without a second request.
+    const updateProfile = useCallback(async (profile) => {
+        const updated = await apiRequest('/auth/me', { method: 'PATCH', body: profile })
+        setUser(updated)
+        return updated
+    }, [])
+
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, login, signup, logout, updateProfile }}>
             {children}
         </AuthContext.Provider>
     )
