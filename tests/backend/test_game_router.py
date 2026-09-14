@@ -300,8 +300,9 @@ def test_multiway_all_in_produces_a_genuine_side_pot_end_to_end(client, auth_hea
     # persistence -> reconstruction -> showdown -- not just re-prove the
     # pot-layer math itself (poker/betting.py's own test suite already
     # covers that exhaustively, including the exact worked $50/$120/$200
-    # example). Bot stacks are randomized (50-150 big blinds) per hand and
-    # not directly controllable through the API, and bots decide with
+    # example). Bot stacks are randomized per hand (scaled off hero's own
+    # bankroll, see game_engine._sample_opponent_stack_bb) and not directly
+    # controllable through the API, and bots decide with
     # live, unseeded equity -- so this can't be forced deterministically
     # in one shot. Instead: give hero an enormous stack (so any calling
     # bot is guaranteed to go all-in for less than hero's raise), shove
