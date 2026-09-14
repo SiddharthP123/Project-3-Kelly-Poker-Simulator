@@ -72,6 +72,17 @@ describe('PokerTable', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: /deal hand/i })).toBeInTheDocument())
     })
 
+    it('shows an outlined, session-derived table before any hand is dealt', async () => {
+        const sessionWithOpponent = { ...session, opponents: [{ seat_index: 1, persona: 'tight-aggressive' }] }
+        global.fetch.mockResolvedValue(jsonResponse({ detail: 'not found' }, { status: 404 }))
+
+        render(<PokerTable sessionId="1" session={sessionWithOpponent} onSessionUpdate={vi.fn()} />)
+
+        await waitFor(() => expect(screen.getByRole('button', { name: /deal hand/i })).toBeInTheDocument())
+        expect(screen.getByText('You')).toBeInTheDocument()
+        expect(screen.getByText('Tight-Aggressive')).toBeInTheDocument()
+    })
+
     it('shows hero cards and action controls after dealing', async () => {
         global.fetch
             .mockResolvedValueOnce(jsonResponse({ detail: 'not found' }, { status: 404 })) // initial pending check
@@ -125,6 +136,28 @@ describe('PokerTable', () => {
 
         await waitFor(() => expect(screen.getByText('Free to check')).toBeInTheDocument())
         expect(screen.getByText('—')).toBeInTheDocument()
+    })
+
+    it("shows a transient label for an opponent's action resolved by act(), not for the initial deal", async () => {
+        const stillPendingWithAction = {
+            ...dealtHand,
+            street: 'flop',
+            board_cards: '2c,3d,4h',
+            actions: [{ seq: 1, street: 'preflop', seat_index: 1, action: 'match', amount: 1, pot_size_after: 4 }],
+        }
+
+        global.fetch
+            .mockResolvedValueOnce(jsonResponse(dealtHand)) // initial pending check -- a fresh hand, no toast
+            .mockResolvedValueOnce(jsonResponse(stillPendingWithAction)) // act: call
+
+        render(<PokerTable sessionId="1" session={session} onSessionUpdate={vi.fn()} />)
+
+        await waitFor(() => screen.getByRole('button', { name: /call \$1/i }))
+        expect(screen.queryByText(/calls \$1\.00/i)).not.toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: /call \$1/i }))
+
+        await waitFor(() => expect(screen.getByText(/calls \$1\.00/i)).toBeInTheDocument())
     })
 
     it('does not call onSessionUpdate when the street advances but the hand is still pending', async () => {

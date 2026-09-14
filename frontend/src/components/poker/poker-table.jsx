@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ActionControls } from '@/components/poker/action-controls'
 import { AnimatedCard } from '@/components/poker/animated-card'
@@ -8,11 +8,54 @@ import { KellyStakePanel } from '@/components/poker/kelly-stake-panel'
 import { Seat } from '@/components/poker/seat'
 import { Button } from '@/components/ui/button'
 import { apiRequest } from '@/lib/api-client'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatPersonaLabel } from '@/lib/format'
 import { getSeatPosition } from '@/lib/seat-positions'
 
 const BOARD_SLOTS = 5
 const POT_POSITION = { top: '50%', left: '50%' }
+const ACTION_LABEL_TTL_MS = 1500
+
+/**
+ * action.action is the engine's own low-level vocabulary
+ * ('post_blind' | 'fold' | 'match' | 'raise_to', see poker/betting.py's
+ * BettingAction), and action.amount is the incremental chips moved by
+ * that one action -- not a "raise to" total, which the API never sends
+ * for a seat other than hero's own current decision. "Raises +$X" is
+ * therefore the accurate label, not "Raises to $X".
+ */
+const formatActionLabel = (action) => {
+    switch (action.action) {
+        case 'fold':
+            return 'Folds'
+        case 'match':
+            return action.amount > 0 ? `Calls ${formatCurrency(action.amount)}` : 'Checks'
+        case 'raise_to':
+            return `Raises +${formatCurrency(action.amount)}`
+        case 'post_blind':
+            return `Posts ${formatCurrency(action.amount)}`
+        default:
+            return action.action
+    }
+}
+
+/**
+ * Idle-state stand-in for Seat -- used before a hand exists, when there's
+ * no HandPlayerResponse yet to hand Seat, just session.opponents' own
+ * seat_index/persona. Outlined/dashed throughout (matching the existing
+ * undealt-board-slot pattern) so it reads as "waiting for a hand," not a
+ * real dealt seat.
+ */
+const SeatPlaceholder = ({ label }) => (
+    <div className="flex flex-col items-center gap-1.5">
+        <div className="flex gap-1">
+            <div className="h-14 w-10 rounded-lg border border-dashed border-white/15" />
+            <div className="h-14 w-10 rounded-lg border border-dashed border-white/15" />
+        </div>
+        <div className="rounded-md border border-dashed border-white/15 px-3 py-1.5 text-center">
+            <span className="text-xs font-medium text-white/40">{label}</span>
+        </div>
+    </div>
+)
 
 /**
  * The deal/act state machine for one session, now driving a multi-seat,
@@ -32,13 +75,18 @@ const POT_POSITION = { top: '50%', left: '50%' }
  * hand (a street advancing, or an action resolving, only changes props
  * on the already-mounted seat/card elements, which AnimatedCard only
  * animates for the specific state transition it represents -- see its
- * own docstring).
+ * own docstring). Before any hand exists, the felt still renders --
+ * seats/board are outlined placeholders built from `session.opponents`,
+ * so the table always looks like a real table waiting for a hand rather
+ * than a blank area with just a button on it.
  */
 const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     const [hand, setHand] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
+    const [actionLabels, setActionLabels] = useState({})
+    const previousHandIdRef = useRef(null)
 
     const loadPendingHand = useCallback(async () => {
         try {
@@ -57,6 +105,53 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     useEffect(() => {
         loadPendingHand()
     }, [loadPendingHand])
+
+    // Shows each seat's just-resolved action as a transient label, driven
+    // entirely off hand.actions (never re-derived or recomputed -- see
+    // formatActionLabel). A brand-new hand.id (a fresh deal, or the very
+    // first hand recovered on page load) is treated as a remount, not an
+    // update -- its already-included setup actions (blinds) establish the
+    // baseline silently instead of flashing a burst of toasts the instant
+    // the table remounts. Only a later response for the SAME hand.id (an
+    // `act` call resolving bot turns and/or hero's own action) toasts.
+    useEffect(() => {
+        if (!hand) {
+            previousHandIdRef.current = null
+            return undefined
+        }
+
+        const isNewHand = hand.id !== previousHandIdRef.current
+        previousHandIdRef.current = hand.id
+        if (isNewHand) {
+            return undefined
+        }
+
+        const newActions = hand.actions || []
+        if (newActions.length === 0) {
+            return undefined
+        }
+
+        const entries = newActions.map((action) => [
+            action.seat_index,
+            { id: `${hand.id}-${action.seq}`, text: formatActionLabel(action) },
+        ])
+
+        setActionLabels((previous) => ({ ...previous, ...Object.fromEntries(entries) }))
+
+        const timeoutId = setTimeout(() => {
+            setActionLabels((previous) => {
+                const next = { ...previous }
+                entries.forEach(([seatIndex, entry]) => {
+                    if (next[seatIndex]?.id === entry.id) {
+                        delete next[seatIndex]
+                    }
+                })
+                return next
+            })
+        }, ACTION_LABEL_TTL_MS)
+
+        return () => clearTimeout(timeoutId)
+    }, [hand])
 
     const handleDeal = async () => {
         setErrorMessage('')
@@ -106,9 +201,19 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
 
     const boardCards = hand?.board_cards ? hand.board_cards.split(',') : []
     const isComplete = hand?.street === 'complete'
+    const hero = hand?.players.find((player) => player.is_hero)
+    const heroCards = hero?.hole_cards ? hero.hole_cards.split(',') : []
+
+    const idleSeats = [
+        { seat_index: 0, label: 'You' },
+        ...(session.opponents || []).map((opponent) => ({
+            seat_index: opponent.seat_index,
+            label: formatPersonaLabel(opponent.persona),
+        })),
+    ]
 
     return (
-        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
             <div className="text-center text-white">
                 <p className="text-sm text-white/60">Bankroll</p>
                 <p className="text-2xl font-semibold">{formatCurrency(session.current_bankroll)}</p>
@@ -116,47 +221,46 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
 
             {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
 
-            {!hand && (
-                <div className="flex justify-center">
-                    <Button onClick={handleDeal} disabled={isSubmitting}>
-                        Deal hand
-                    </Button>
-                </div>
-            )}
-
-            {hand && (
-                <>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                <div className="relative flex-1">
                     <div
-                        key={hand.id}
-                        className="relative aspect-[16/10] w-full rounded-[999px] border-4 border-white/10 bg-gradient-to-b from-zinc-800 to-black shadow-inner"
+                        key={hand?.id ?? 'idle'}
+                        className="relative aspect-[16/10] w-full rounded-[40px] border-4 border-white/10 bg-gradient-to-b from-emerald-800 to-emerald-950 shadow-inner"
                     >
-                        {hand.players.map((player) => (
+                        {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
-                                key={player.seat_index}
+                                key={seatEntry.seat_index}
                                 className="absolute -translate-x-1/2 -translate-y-1/2"
-                                style={getSeatPosition(player.seat_index, session.num_opponents)}
+                                style={getSeatPosition(seatEntry.seat_index, session.num_opponents)}
                             >
-                                <Seat
-                                    player={player}
-                                    isButton={player.seat_index === hand.button_seat}
-                                    dealDelay={player.seat_index * 0.12}
-                                />
+                                {hand ? (
+                                    <Seat
+                                        player={seatEntry}
+                                        isButton={seatEntry.seat_index === hand.button_seat}
+                                        dealDelay={seatEntry.seat_index * 0.12}
+                                        actionLabel={actionLabels[seatEntry.seat_index]}
+                                    />
+                                ) : (
+                                    <SeatPlaceholder label={seatEntry.label} />
+                                )}
                             </div>
                         ))}
 
                         <div className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
-                            <AnimatePresence mode="popLayout">
-                                <motion.p
-                                    key={hand.pot_size}
-                                    className="text-sm font-medium text-white/70"
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    Pot: {formatCurrency(hand.pot_size)}
-                                </motion.p>
-                            </AnimatePresence>
+                            {hand && (
+                                <AnimatePresence mode="popLayout">
+                                    <motion.p
+                                        key={hand.pot_size}
+                                        className="text-sm font-medium text-white/70"
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        Pot: {formatCurrency(hand.pot_size)}
+                                    </motion.p>
+                                </AnimatePresence>
+                            )}
                             <div className="flex gap-1.5">
                                 {Array.from({ length: BOARD_SLOTS }, (_, index) => index).map((index) =>
                                     boardCards[index] ? (
@@ -192,8 +296,39 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                             ))}
                     </div>
 
+                    {!hand && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Button onClick={handleDeal} disabled={isSubmitting}>
+                                Deal hand
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex w-full flex-col items-center gap-4 lg:w-[380px] lg:shrink-0">
+                    {hand && (
+                        <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-lg border border-white/15 bg-black/60 p-4">
+                            <p className="text-sm font-medium text-white/70">Your hand</p>
+                            <div className="flex gap-2">
+                                {heroCards.length > 0
+                                    ? heroCards.map((card, index) => (
+                                          <AnimatedCard key={index} dealt card={card} size="md" dealDelay={index * 0.06} />
+                                      ))
+                                    : [0, 1].map((index) => (
+                                          <div
+                                              key={index}
+                                              className="h-20 w-14 rounded-lg border border-dashed border-white/15"
+                                          />
+                                      ))}
+                            </div>
+                            <p className="text-xl font-semibold tabular-nums text-white">
+                                {formatCurrency(hero?.stack ?? 0)}
+                            </p>
+                        </div>
+                    )}
+
                     {isComplete && <HandResultBanner hand={hand} onDealNext={handleDeal} />}
-                    {!isComplete && hand.legal_action_bounds && (
+                    {hand && !isComplete && hand.legal_action_bounds && (
                         <>
                             <KellyStakePanel
                                 equity={hand.equity_at_decision}
@@ -209,8 +344,8 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                             />
                         </>
                     )}
-                </>
-            )}
+                </div>
+            </div>
         </div>
     )
 }

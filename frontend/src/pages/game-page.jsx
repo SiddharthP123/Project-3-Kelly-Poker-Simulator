@@ -30,7 +30,7 @@ const GamePage = () => {
         <div className="flex min-h-svh flex-col">
             <AppHeader />
             <main className="flex-1 bg-zinc-950 p-4">
-                <div className="mx-auto mb-4 flex w-full max-w-3xl justify-end">
+                <div className="mx-auto mb-4 flex w-full max-w-6xl justify-end">
                     <Button variant="outline" size="sm" asChild>
                         <Link to={`/sessions/${sessionId}/dashboard`}>View dashboard</Link>
                     </Button>
