@@ -1381,6 +1381,16 @@ Run just this phase's tests:
 cd frontend && npm run test -- login-page signup-page how-to-play kelly-criterion
 ```
 
+**Addendum**: extended the same `dark bg-background text-foreground` wrapper to
+`frontend/src/pages/lobby-page.jsx` (the "resume session" / session-setup page), `profile-page.jsx`,
+and `stats-page.jsx` (all three of their return states -- loading/error/loaded), after using the
+deployed app surfaced that these three should also read dark, same as the education/auth pages.
+`StatRadialGauge`'s recharts background arc also gained an explicit `background={{ fill:
+'var(--muted)' }}` -- that chart isn't wrapped in the shared `ChartContainer`
+(`frontend/src/components/ui/chart.jsx`), which is what neutralizes recharts' own hardcoded
+light-gray background-sector default elsewhere, so without this the backdrop arc would have stayed
+light-gray against the new dark background.
+
 ### Phase 3: illustrated hand rankings + illustrated preflop/flop/turn/river example
 
 Frontend only, `frontend/src/pages/how-to-play-page.jsx`, reusing the existing `PlayingCard`
