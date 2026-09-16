@@ -1,6 +1,7 @@
 import { AppHeader } from '@/components/layout/app-header'
 import { GlossaryEntry } from '@/components/education/glossary-entry'
 import { HandRankings } from '@/components/education/hand-rankings'
+import { StartingHandMatrix } from '@/components/education/starting-hand-matrix'
 import { StreetProgression } from '@/components/education/street-progression'
 
 /**
@@ -53,6 +54,19 @@ const HowToPlayPage = () => (
                     A betting round happens after each street. A hand can end early on any street --
                     it doesn't need to reach the river if everyone but one player folds.
                 </p>
+            </section>
+
+            <section className="flex flex-col gap-3">
+                <h2 className="text-xl font-semibold">Starting hand strength</h2>
+                <p>
+                    Not all starting hands are equal. This chart scores all 169 possible starting
+                    hand classes using the widely-cited "Chen Formula" -- pairs on the diagonal,
+                    suited combos above it, offsuit combos below -- from strongest (green) to
+                    weakest (red). <strong>7-2 offsuit</strong> famously scores among the very worst,
+                    which is exactly why it's the poker community's go-to example of the worst hand
+                    in Hold'em.
+                </p>
+                <StartingHandMatrix />
             </section>
 
             <section className="flex flex-col gap-3">

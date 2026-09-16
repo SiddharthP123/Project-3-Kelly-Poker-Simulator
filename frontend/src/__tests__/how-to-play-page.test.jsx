@@ -84,4 +84,19 @@ describe('HowToPlayPage', () => {
             expect(screen.getByText(streetName)).toBeInTheDocument()
         })
     })
+
+    it('renders the 169-cell starting hand strength matrix', () => {
+        render(
+            <MemoryRouter>
+                <AuthProvider>
+                    <HowToPlayPage />
+                </AuthProvider>
+            </MemoryRouter>,
+        )
+
+        expect(screen.getByRole('heading', { name: /starting hand strength/i })).toBeInTheDocument()
+        expect(screen.getAllByTitle('AA')).toHaveLength(1)
+        expect(screen.getAllByTitle('72o')).toHaveLength(1)
+        expect(screen.getAllByTitle('AKs')).toHaveLength(1)
+    })
 })
