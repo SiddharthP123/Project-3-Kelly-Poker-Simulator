@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/layout/protected-route'
 import { DashboardPage } from '@/pages/dashboard-page'
 import { GamePage } from '@/pages/game-page'
 import { HowToPlayPage } from '@/pages/how-to-play-page'
+import { KellyCriterionPage } from '@/pages/kelly-criterion-page'
 import { LobbyPage } from '@/pages/lobby-page'
 import { LoginPage } from '@/pages/login-page'
 import { ProfilePage } from '@/pages/profile-page'
@@ -15,6 +16,7 @@ const App = () => (
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
+        <Route path="/kelly-criterion" element={<KellyCriterionPage />} />
 
         <Route element={<ProtectedRoute />}>
             <Route path="/" element={<LobbyPage />} />

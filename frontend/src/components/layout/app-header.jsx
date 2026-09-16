@@ -15,6 +15,9 @@ const AppHeader = () => {
                 <Link to="/how-to-play" className="hover:text-foreground">
                     How to Play
                 </Link>
+                <Link to="/kelly-criterion" className="hover:text-foreground">
+                    Kelly Criterion
+                </Link>
                 {user && (
                     <>
                         <Link to="/stats" className="hover:text-foreground">
