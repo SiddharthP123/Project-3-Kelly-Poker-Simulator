@@ -1213,3 +1213,41 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- kelly-criterion
 ```
+
+### Phase 4: position/sequence-aware preflop stats -- PFR, 3-bet%, ATS%
+
+Backend only, `backend/services/user_stats.py`. All three need to know how much action already
+happened before hero's own preflop decision on that street -- a genuinely different
+(sequence/position-aware) computation from Phase 4 (Part 13)'s flat VPIP/aggression filters, so it
+gets a new shared helper, `_hero_preflop_decisions`, rather than three near-duplicate loops. It walks
+each complete hand's full action log (every seat, not just hero's) in `seq` order once, and for
+hero's FIRST preflop decision each hand records how many real entries (a raise, or a call with
+`amount > 0`) happened before it, how many of those were raises, and whether hero held the button.
+
+- **PFR** (preflop raise %) -- fraction of hands where hero's first preflop entry was itself a raise
+  (a strict subset of `vpip_rate`'s hand set).
+- **3-bet%** -- of hands where hero faced at least one existing preflop raise before acting (an
+  "opportunity"), the fraction hero re-raised.
+- **ATS%** (attempt to steal) -- hero on the button, folded to before hero's turn (0 entries) -- an
+  "opportunity"; of those, the fraction hero raised. Only meaningful for `num_opponents` >= 2, not
+  special-cased for heads-up.
+
+**A real finding from testing this**: a genuine opponent preflop *raise* before hero's turn turns
+out to be structurally rare through the live bot-decision pipeline, confirmed by direct
+experimentation -- not a bug, just how the existing (pre-Part-14) bot-decision code behaves. Two
+compounding reasons: `poker/hand_flow.py`'s `default_bot_action` sizes a persona's raise as a
+fraction of the *current pot*, which at the blinds-only pot a hand starts with is almost always
+below the legal minimum raise and silently downgrades to a call; and even personas whose sizing
+isn't pot-fraction-based (`KellyOptimalBot`) need roughly 40% equity to justify raising a 2-into-3
+blinds-only pot, while a random hand's average equity 3-4-way is only ~25%. The 3-bet% test
+therefore constructs its scenario directly (a new `_insert_complete_hand` test helper writing
+`HandHistory`/`HandPlayer`/`HandAction` rows straight to the test DB) rather than retrying live
+deals for a condition that would need a very large attempt budget to hit reliably -- PFR/ATS%'s own
+tests didn't need this, since both only depend on hero's *own* controlled action, never an
+opponent's.
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_user_stats_router.py -v
+```

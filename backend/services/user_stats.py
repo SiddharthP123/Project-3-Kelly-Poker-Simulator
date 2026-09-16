@@ -12,6 +12,11 @@ per hand) and groups them by hand_history_id in Python.
 Part 13 Phase 4 adds play-style metrics (vpip_rate/aggression_factor) and
 an account-wide bankroll_history, both empirical rather than re-deriving
 anything from fixed thresholds -- see the play-style block below.
+
+Part 14 Phase 4 adds three more, all needing to know how much action
+already happened before hero's own preflop decision on that street --
+a genuinely different (sequence/position-aware) computation from the
+flat filters above, so it gets its own helper, _hero_preflop_decisions.
 """
 
 from collections import defaultdict
@@ -19,6 +24,46 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from backend.models import BankrollLog, GameSession, HandAction, HandHistory, HandPlayer, User
+
+
+def _hero_preflop_decisions(actions_by_hand, button_seat_by_hand):
+    """One record per complete hand, describing hero's FIRST preflop
+    decision only (later preflop actions in the same hand, if the action
+    reopens on hero, describe a 4-bet/5-bet/etc. -- out of scope here):
+
+    - 'action': hero's own action string ('fold' | 'match' | 'raise_to').
+    - 'entries_before': how many real entries (a raise_to, or a match
+      with amount > 0 -- i.e. NOT a forced blind or a free check) any
+      OTHER seat made on this street before hero's decision.
+    - 'raises_before': the subset of entries_before that were raises.
+    - 'is_button': whether hero held the button this hand.
+
+    Reused by PFR (action == 'raise_to'), 3-bet% (raises_before >= 1 is
+    the "opportunity"), and ATS% (is_button and entries_before == 0 is
+    the "opportunity") -- three different slices of the same walk,
+    rather than three near-duplicate loops over the action log.
+    """
+    decisions = {}
+    for hand_id, actions in actions_by_hand.items():
+        entries_before = 0
+        raises_before = 0
+        for action in sorted(actions, key=lambda a: a.seq):
+            if action.street != 'preflop':
+                continue
+            if action.seat_index == 0:
+                decisions[hand_id] = {
+                    'action': action.action,
+                    'entries_before': entries_before,
+                    'raises_before': raises_before,
+                    'is_button': button_seat_by_hand.get(hand_id) == 0,
+                }
+                break
+            is_entry = action.action == 'raise_to' or (action.action == 'match' and action.amount > 0)
+            if is_entry:
+                entries_before += 1
+            if action.action == 'raise_to':
+                raises_before += 1
+    return decisions
 
 
 def compute_user_stats(user: User, db: Session) -> dict:
@@ -31,6 +76,7 @@ def compute_user_stats(user: User, db: Session) -> dict:
         'win_rate': 0.0, 'loss_rate': 0.0, 'split_rate': 0.0, 'fold_rate': 0.0,
         'biggest_win': None, 'biggest_loss': None,
         'vpip_rate': 0.0, 'aggression_factor': None,
+        'pfr_rate': 0.0, 'three_bet_rate': None, 'ats_rate': None,
     }
 
     if not sessions:
@@ -54,12 +100,13 @@ def compute_user_stats(user: User, db: Session) -> dict:
         .all()
     ]
 
-    complete_hand_ids = [
-        row.id for row in
-        db.query(HandHistory.id)
+    complete_hands = (
+        db.query(HandHistory.id, HandHistory.button_seat)
         .filter(HandHistory.game_session_id.in_(session_ids), HandHistory.street == 'complete')
         .all()
-    ]
+    )
+    complete_hand_ids = [row.id for row in complete_hands]
+    button_seat_by_hand = {row.id: row.button_seat for row in complete_hands}
 
     if not complete_hand_ids:
         return {
@@ -136,6 +183,39 @@ def compute_user_stats(user: User, db: Session) -> dict:
     call_count = sum(1 for action in hero_actions if action.action == 'match' and action.amount > 0)
     aggression_factor = raise_count / call_count if call_count > 0 else None
 
+    # PFR/3-bet%/ATS%: all three need to know how much action already
+    # happened before hero's own preflop decision -- see
+    # _hero_preflop_decisions for the single shared walk they're derived
+    # from. This needs every seat's actions, not just hero's own (unlike
+    # vpip_rate/aggression_factor above), so it's a separate query.
+    all_actions = db.query(HandAction).filter(HandAction.hand_history_id.in_(complete_hand_ids)).all()
+    actions_by_hand = defaultdict(list)
+    for action in all_actions:
+        actions_by_hand[action.hand_history_id].append(action)
+    preflop_decisions = _hero_preflop_decisions(actions_by_hand, button_seat_by_hand)
+
+    # PFR (preflop raise %): fraction of hands where hero's first preflop
+    # entry was itself a raise -- a strict subset of vpip_rate's hand set.
+    pfr_rate = rate(sum(1 for d in preflop_decisions.values() if d['action'] == 'raise_to'))
+
+    # 3-bet%: of hands where hero faced at least one existing preflop
+    # raise before acting (an "opportunity"), the fraction hero re-raised.
+    three_bet_opportunities = [d for d in preflop_decisions.values() if d['raises_before'] >= 1]
+    three_bet_rate = (
+        sum(1 for d in three_bet_opportunities if d['action'] == 'raise_to') / len(three_bet_opportunities)
+        if three_bet_opportunities else None
+    )
+
+    # ATS% (attempt to steal): hero on the button, folded to before
+    # hero's turn (0 real entries preflop) -- an "opportunity"; of those,
+    # the fraction hero raised. Only meaningful for num_opponents >= 2 (a
+    # real button-vs-blinds distinction), not special-cased for heads-up.
+    ats_opportunities = [d for d in preflop_decisions.values() if d['is_button'] and d['entries_before'] == 0]
+    ats_rate = (
+        sum(1 for d in ats_opportunities if d['action'] == 'raise_to') / len(ats_opportunities)
+        if ats_opportunities else None
+    )
+
     return {
         'total_sessions': len(sessions),
         'total_hands': total_hands,
@@ -148,5 +228,8 @@ def compute_user_stats(user: User, db: Session) -> dict:
         'biggest_loss': min(losses) if losses else None,
         'vpip_rate': vpip_rate,
         'aggression_factor': aggression_factor,
+        'pfr_rate': pfr_rate,
+        'three_bet_rate': three_bet_rate,
+        'ats_rate': ats_rate,
         'bankroll_history': bankroll_history,
     }
