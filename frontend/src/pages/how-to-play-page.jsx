@@ -1,5 +1,7 @@
 import { AppHeader } from '@/components/layout/app-header'
 import { GlossaryEntry } from '@/components/education/glossary-entry'
+import { HandRankings } from '@/components/education/hand-rankings'
+import { StreetProgression } from '@/components/education/street-progression'
 
 /**
  * A public, no-login-required tutorial (Part 14 Phase 2) for a first-time
@@ -34,23 +36,19 @@ const HowToPlayPage = () => (
             </section>
 
             <section className="flex flex-col gap-3">
+                <h2 className="text-xl font-semibold">Hand rankings</h2>
+                <p>
+                    When a hand reaches showdown, these are the categories a 5-card hand can fall
+                    into, from weakest to strongest -- a higher-ranked category always beats a
+                    lower one, regardless of the actual card values involved.
+                </p>
+                <HandRankings />
+            </section>
+
+            <section className="flex flex-col gap-3">
                 <h2 className="text-xl font-semibold">The four streets</h2>
                 <p>Betting happens in four rounds, called streets, as more of the board is revealed:</p>
-                <ul className="flex flex-col gap-2 pl-5">
-                    <li className="list-disc">
-                        <strong>Preflop</strong> -- right after hole cards are dealt, before any
-                        community cards are shown. The first betting round.
-                    </li>
-                    <li className="list-disc">
-                        <strong>Flop</strong> -- the first 3 community cards are dealt at once.
-                    </li>
-                    <li className="list-disc">
-                        <strong>Turn</strong> -- a 4th community card is dealt.
-                    </li>
-                    <li className="list-disc">
-                        <strong>River</strong> -- the 5th and final community card is dealt.
-                    </li>
-                </ul>
+                <StreetProgression />
                 <p>
                     A betting round happens after each street. A hand can end early on any street --
                     it doesn't need to reach the river if everyone but one player folds.
