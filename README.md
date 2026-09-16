@@ -1361,3 +1361,22 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- poker-table
 ```
+
+### Phase 2: dark mode for Login, Signup, How to Play, and Kelly Criterion
+
+Frontend only -- `frontend/src/pages/login-page.jsx`, `signup-page.jsx`, `how-to-play-page.jsx`,
+`kelly-criterion-page.jsx`. No global theme toggle was added: `frontend/src/index.css` already
+shipped a complete, unused `.dark { ... }` token override (near-black `--background`, near-white
+`--foreground`, etc., activated via `@custom-variant dark (&:is(.dark *))`) as shadcn boilerplate,
+and all four pages were already built almost entirely from semantic tokens (`bg-background`,
+`text-foreground`, `text-muted-foreground`, shadcn `Card`/`Input`/`Button`/`Label`) rather than
+hardcoded light colors. Each page's root element now carries `className="dark bg-background
+text-foreground ..."`, cascading the existing dark tokens to that page's whole subtree (including
+`AppHeader`, itself fully token-based already) without touching any other page -- nothing else in
+the app references `.dark` as an ancestor selector.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- login-page signup-page how-to-play kelly-criterion
+```
