@@ -37,3 +37,11 @@ Postgres container during development.
 The new tables Part 12 also introduces (`game_session_opponents`, `hand_players`, `hand_actions`)
 need **no manual step** -- they're brand new tables, so `create_tables.py`'s existing
 `create_all()` already creates them the next time it's run.
+
+## `0002_part13_profile_columns.sql`
+
+Adds `bio`/`avatar_url` to the existing `users` table for Part 13 Phase 3's profile page. Both
+columns are nullable -- existing rows just get `NULL` until their owner fills their profile in.
+Same `run_migrations.py` command as above applies this one too (it applies every `.sql` file in
+this directory, in filename order, so `0001` and `0002` both run in one pass on a database that's
+never had either applied).

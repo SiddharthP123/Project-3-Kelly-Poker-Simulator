@@ -11,10 +11,15 @@ rows) every time a request needs to continue a hand, and
 advance_hand/apply_hero_action pick up exactly where the previous request
 left off.
 
-Bots get a randomized per-hand stack (50-150 big blinds), reset every
-hand -- only hero's session.current_bankroll persists across hands, per
-the Part 12 plan's simplification (tracking 4 more bot bankrolls doesn't
-serve this project's hero-bankroll-centric purpose).
+Bots get a randomized per-hand stack, reset every hand -- only hero's
+session.current_bankroll persists across hands, per the Part 12 plan's
+simplification (tracking 4 more bot bankrolls doesn't serve this
+project's hero-bankroll-centric purpose). As of Part 13 Phase 2, that
+stack is sampled relative to hero's OWN current bankroll (in big blinds)
+rather than a fixed 50-150BB band -- a deep hero should sit across from a
+deep-feeling table, and a hero who's busted down to a short stack
+shouldn't still be facing 150BB bots. See BOT_STACK_MIN_BANKROLL_FRACTION
+below.
 
 Redaction happens at response-assembly time (_build_live_response /
 build_historical_response), not in storage -- HandPlayer.hole_cards is
@@ -47,14 +52,38 @@ from poker.kelly import kelly_fraction_from_pot_odds
 
 from backend.models import BankrollLog, GameSession, GameSessionOpponent, HandAction, HandHistory, HandPlayer
 
-BOT_STACK_MIN_BB = 50
-BOT_STACK_MAX_BB = 150
+# A bot's per-hand stack is sampled as this fraction range of hero's OWN
+# current bankroll, expressed in big blinds -- e.g. a hero sitting on
+# 200BB faces bots randomized to roughly 100-300BB, not a fixed band that
+# ignores hero's bankroll entirely. Floor/ceiling clamp the BASELINE (hero's
+# own BB count) the fraction range is centered on, not the final sampled
+# stack directly -- clamping the final value instead would collapse every
+# bot to the exact same number once hero's bankroll is deep enough to blow
+# past the ceiling, which is the opposite of "randomized." Clamping the
+# baseline first keeps real per-hand variance (a genuine range around the
+# clamped point) no matter how short or deep hero's own bankroll gets.
+BOT_STACK_MIN_BANKROLL_FRACTION = 0.5
+BOT_STACK_MAX_BANKROLL_FRACTION = 1.5
+BOT_STACK_BASELINE_FLOOR_BB = 10
+BOT_STACK_BASELINE_CEILING_BB = 300
 
 # Hero-facing equity is shown live in the UI (Part 12 Phase 8), not just
 # used internally like the bots' own equity calls -- a higher sample
 # count than DEFAULT_BOT_NUM_SIMULATIONS (750) buys noticeably less
 # jitter for a number a human is actually looking at and deciding from.
-HERO_NUM_SIMULATIONS = 3000
+# Lowered from 3000 (Part 13 Phase 2) -- 3000 sims made every hero
+# decision noticeably slow to render; 1000 is still comfortably smoother
+# than the bots' own 750 while cutting that latency by two-thirds.
+HERO_NUM_SIMULATIONS = 1000
+
+
+def _sample_opponent_stack_bb(rng, hero_bankroll_bb):
+    """One bot's per-hand stack, in big blinds -- a randomized fraction of
+    hero's own current bankroll (also in big blinds). See the module-level
+    BOT_STACK_* constants for why the baseline is clamped before sampling
+    rather than the sampled result clamped after."""
+    baseline_bb = max(BOT_STACK_BASELINE_FLOOR_BB, min(BOT_STACK_BASELINE_CEILING_BB, hero_bankroll_bb))
+    return rng.uniform(BOT_STACK_MIN_BANKROLL_FRACTION, BOT_STACK_MAX_BANKROLL_FRACTION) * baseline_bb
 
 
 def _cards_to_str(cards):
@@ -399,8 +428,9 @@ def deal_hand(session, db, seed=None):
     rng = random.Random(seed)
     opponents = sorted(session.opponents, key=lambda o: o.seat_index)
     num_opponents = session.num_opponents
+    hero_bankroll_bb = session.current_bankroll / session.big_blind
     opponent_stacks = [
-        rng.uniform(BOT_STACK_MIN_BB, BOT_STACK_MAX_BB) * session.big_blind for _ in range(num_opponents)
+        _sample_opponent_stack_bb(rng, hero_bankroll_bb) * session.big_blind for _ in range(num_opponents)
     ]
     personas = [o.persona for o in opponents]
     hand_number = db.query(HandHistory).filter_by(game_session_id=session.id).count() + 1

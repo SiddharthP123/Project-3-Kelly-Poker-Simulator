@@ -40,6 +40,7 @@ solid and tested before any API or UI is built on top of it.
 | 10 | Frontend (React) | ✅ Done |
 | 11 | Deployment | ✅ Done |
 | 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
+| 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | 🚧 In progress |
 
 ## Setup
 
@@ -784,7 +785,7 @@ Two small nullable columns land on the *existing* `game_sessions` (`num_opponent
 `big_blind`) and `hand_histories` (`button_seat`, `street`) tables — safe for a fresh database, but
 **not** something `create_all()` can add to an already-live table with real rows in it (it only
 creates missing tables, never alters existing ones). That's a genuine manual step against the live
-Render Postgres — see `backend/migrations/README.md` for exactly when/how to run it, done
+production database — see `backend/migrations/README.md` for exactly when/how to run it, done
 deliberately before Phase 5 needs those columns, not bundled silently into this commit.
 
 `GameSession.bot_persona` and `HandHistory`'s single-opponent card columns are left untouched
@@ -801,8 +802,9 @@ process.
 
 - `POST /sessions` takes `num_opponents` (1-4), `small_blind`/`big_blind` instead of `bot_persona`
   — personas are randomly assigned per opponent seat via `assign_opponent_personas` and stored in
-  the new `game_session_opponents` table. Bots get a randomized per-hand stack (50-150 big blinds),
-  reset every hand — only hero's `current_bankroll` persists across hands.
+  the new `game_session_opponents` table. Bots get a randomized per-hand stack (50-150 big blinds
+  originally; scaled off hero's own bankroll as of Part 13 Phase 2), reset every hand — only hero's
+  `current_bankroll` persists across hands.
 - Two small but load-bearing changes to already-merged Phase 1/2 code, both re-verified against
   their full existing test suites afterward: `poker/hand_flow.py` now deals the whole 5-card board
   once, upfront (`HandState.board` is a property slicing it by street) rather than street-by-street
@@ -833,7 +835,7 @@ Run just this part's tests:
 pytest tests/backend/test_game_router.py -v
 ```
 
-**Manual step still needed before this is usable against the live Render database:** run
+**Manual step still needed before this is usable against the live production database:** run
 `backend/migrations/run_migrations.py` against it (see `backend/migrations/README.md`) — the new
 `num_opponents`/`small_blind`/`big_blind`/`button_seat`/`street` columns don't exist on the
 already-live `game_sessions`/`hand_histories` tables until that's done.
@@ -1014,3 +1016,131 @@ cd frontend && npm run test -- poker-table
 Part 12 (all 8 phases) is now complete — the full multi-street, multi-opponent poker engine, backend
 wiring, animated frontend, account-wide stats, and live Kelly-recommended sizing are all built and
 tested end to end.
+
+## Part 13: Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics
+
+Hands-on feedback from actually playing the deployed Part 12 app drives this part: visual/layout
+requests for the table, a missing "what did the opponent just do" indicator, real interaction
+latency, a game-balance question about starting stacks, and two new features (a deeper profile
+section, richer stats with a play-style spider chart). Same pattern as Part 12 — each phase gets
+its own check-in before starting.
+
+### Phase 1: table redesign + opponent action display
+
+Frontend-only, in `frontend/src/components/poker/`.
+
+- **`PokerTable`** — green felt (was black/zinc), a much smaller fixed corner radius (was a full
+  pill/stadium shape), and a wider container (`max-w-3xl` → `max-w-6xl`). The felt/seats/board now
+  render even before any hand is dealt — outlined seat/board placeholders built from
+  `session.opponents`, so the table reads as a real table waiting for a hand instead of a blank
+  area with just a "Deal hand" button (now an overlay on top of that, not a full replacement for
+  it). Restructured into two columns: the felt on the left, a new right-side panel with hero's hole
+  cards enlarged, hero's stack, `KellyStakePanel`, and `ActionControls` grouped together.
+- **`Seat`** — gains a transient per-seat action label ("Folds" / "Checks" / "Calls $X" /
+  "Raises +$X" / "Posts $X"), sourced from `hand.actions` (already returned by `deal`/`act`,
+  never previously rendered) and cleared again after ~1.5s. A brand-new hand (a fresh deal, or the
+  hand recovered on page load) doesn't flash its own setup/blind actions as toasts — only a later
+  response for the *same* hand (an `act` call resolving bot turns and/or hero's own action) does.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- poker-table
+```
+
+### Phase 2: bot stack balancing + performance
+
+Both in `backend/services/game_engine.py`.
+
+- **Bot stack balancing** — `deal_hand` previously sampled each bot's per-hand stack from a fixed
+  50-150 big-blind band with no relationship to hero's own bankroll. `_sample_opponent_stack_bb`
+  (new) instead centers that sample on hero's own current bankroll (in big blinds): a deep hero
+  now sits across from a deep-feeling table, and a hero who's busted down to a short stack no
+  longer faces bots several times their size. The floor/ceiling (`BOT_STACK_BASELINE_FLOOR_BB` =
+  10, `BOT_STACK_BASELINE_CEILING_BB` = 300) clamp the *baseline* hero's-bankroll-in-BB the 0.5x-1.5x
+  fraction range is centered on, not the final sampled stack directly — clamping the final value
+  instead would collapse every bot to the exact same number once hero's bankroll is deep enough to
+  blow past the ceiling, which defeats the entire "randomized" premise (this surfaced immediately
+  against `test_multiway_all_in_produces_a_genuine_side_pot_end_to_end`'s enormous-hero-bankroll
+  setup, which needs genuinely different-sized bot stacks to prove a real side pot formed).
+- **Performance** — `HERO_NUM_SIMULATIONS` (the live equity/Kelly simulation count shown to and
+  decided on by hero, wired up in Part 12 Phase 8) lowered from 3000 to 1000. Bots' own
+  `DEFAULT_BOT_NUM_SIMULATIONS` (750, in `poker/hand_flow.py`) is untouched.
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_game_router.py -v
+```
+
+### Phase 3: profile page
+
+- **`users` table** gains nullable `bio`/`avatar_url` columns (`backend/models/user.py`; see
+  `backend/migrations/0002_part13_profile_columns.sql` for the manual step a live database needs).
+  `avatar_url` is a pasted image URL, not a real upload — this project has no file/object storage
+  set up, and adding one is a meaningfully bigger scope than a profile page warrants.
+- **`PATCH /auth/me`** (new, `backend/routers/auth.py`) updates `display_name`/`bio`/`avatar_url`
+  for the current user. It's a full-form save, not a partial patch — the frontend always submits
+  all three fields together, so `UpdateProfileRequest` (new, `backend/schemas/auth.py`) treats a
+  blank field as *clearing* that column (a `blank_to_none` validator turns an empty string into a
+  real `NULL`) rather than leaving it untouched.
+- **`ProfilePage`** (new, `/profile`, linked from `AppHeader`) — edits display name/bio/avatar URL
+  via a new `updateProfile` action on `AuthContext` (which also refreshes the shared `user`, so
+  `AppHeader`'s display name updates immediately), plus a read-only snapshot of the same
+  account-wide stats `/stats` already shows (Part 12 Phase 7's `GET /users/me/stats`, reused rather
+  than duplicated). The avatar preview falls back to an initials circle both when no URL is set and
+  when a set URL fails to load (`onError`) — a broken pasted link is a real, expected case here, not
+  just a hypothetical one.
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_auth_router.py -v
+cd frontend && npm run test -- profile-page use-auth
+```
+
+### Phase 4: play-style analytics, spider chart, account-wide bankroll chart
+
+- **`compute_user_stats`** (`backend/services/user_stats.py`) gains two play-style metrics, computed
+  empirically from hero's own persisted `HandAction` rows (hero always occupies `seat_index == 0` --
+  `poker/hand_flow.py` hardcodes `hero_seat=0` -- so no join to `HandPlayer` is needed) rather than a
+  fixed threshold: the same tight/loose and passive/aggressive axes `poker/bots.py`'s personas are
+  built from.
+  - **`vpip_rate`** ("voluntarily put money in pot") -- the fraction of hands where hero called or
+    raised preflop, as opposed to folding or only ever checking a free option (a forced blind isn't
+    voluntary, and a zero-amount preflop `match` is a free check -- neither counts).
+  - **`aggression_factor`** -- the standard poker HUD raises-to-calls ratio across every street. A
+    check (`match` with `amount == 0`) is excluded from the denominator entirely. `None` (not `0` or
+    infinity) until hero has made a real call -- not enough data for a ratio yet, the same "no data"
+    convention `biggest_win`/`biggest_loss` already use.
+  - **`bankroll_history`** -- every `BankrollLog` row across every one of the user's sessions,
+    chronologically, alongside the existing per-session-only chart from Part 10. A session boundary
+    shows up here as a real jump back to that session's own `starting_bankroll`, not something
+    smoothed over -- each session genuinely is its own scoped bankroll, per this project's
+    Kelly-Criterion premise.
+- **`PlayStyleRadarChart`** (new, `frontend/src/components/dashboard/`) -- a `recharts` `RadarChart`
+  (already a dependency, no new package needed) combining the two new metrics with two Part 12 Phase
+  7 already computes (`win_rate`/`fold_rate`, reused rather than duplicated), all normalized to a
+  shared 0-100 scale. `aggression_factor` is unbounded, so it's capped for this chart's display only
+  (`AGGRESSION_FACTOR_DISPLAY_CAP = 3`) -- the raw ratio is still shown as plain text elsewhere,
+  unclamped. Rendered on both `StatsPage` and `ProfilePage`.
+- **`BankrollGrowthChart`**'s `startingBankroll` prop is now optional -- the per-session dashboard
+  still passes it for a dashed reference line, but the new account-wide chart on `StatsPage` (fed by
+  the same `computeBankrollSeries` helper, just given `bankroll_history` instead of one session's
+  log) has no single "starting" value to mark, so it omits the prop instead of picking one session's
+  value arbitrarily.
+- **Fixed a real, flaky test-suite bug** this phase's new test file exposed: `npm run test`'s
+  `NODE_OPTIONS="--localstorage-file=..."` flag (needed because jsdom's own `localStorage` throws
+  without it) backs `localStorage` with a single real file shared by every worker *thread* in the
+  process, not a separate store per test file -- so two test files running in parallel could race
+  (one file's `localStorage.clear()` wiping another file's just-set auth token before that file's
+  own render ever read it). `vitest.config.js` now sets `fileParallelism: false`; confirmed the
+  previously-observed flake in `profile-page.test.jsx`/`use-auth.test.jsx` across 6 repeated full
+  suite runs (0 failures, versus intermittent failures before).
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_user_stats_router.py -v
+cd frontend && npm run test -- play-style-radar-chart stats-page profile-page
+```

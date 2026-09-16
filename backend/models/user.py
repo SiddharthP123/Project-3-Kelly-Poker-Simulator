@@ -21,6 +21,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Part 13 Phase 3 -- profile page. avatar_url is a pasted image URL, not
+    # a real upload (this project has no file/object storage set up); a
+    # bad/missing value just falls back to an initials circle client-side,
+    # nothing enforced server-side. Both nullable -- an existing live row
+    # just gets NULL until its owner fills the profile in.
+    bio: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     starting_bankroll: Mapped[float] = mapped_column(Float, default=1000.0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

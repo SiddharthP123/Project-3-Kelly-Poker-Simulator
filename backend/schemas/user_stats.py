@@ -1,4 +1,5 @@
 from backend.schemas.base import ApiModel
+from backend.schemas.game_session import BankrollHistoryPoint
 
 
 class UserStatsResponse(ApiModel):
@@ -31,3 +32,16 @@ class UserStatsResponse(ApiModel):
     # never won" and "you won exactly $0 once" are different facts.
     biggest_win: float | None
     biggest_loss: float | None
+
+    # Part 13 Phase 4 -- play-style, computed empirically from hero's own
+    # action log (see compute_user_stats) rather than a fixed threshold,
+    # the same tight/loose and passive/aggressive axes poker/bots.py's
+    # personas are built from.
+    vpip_rate: float  # 0.0 when there's no data yet, like the *_rate fields above
+    aggression_factor: float | None  # None (not 0/inf) until hero has made a real call
+
+    # Every BankrollLog row across every one of the user's sessions, in
+    # chronological order -- unlike the per-session-only chart from Part
+    # 10, a session boundary shows up here as a real jump back to that
+    # session's own starting_bankroll, not something smoothed over.
+    bankroll_history: list[BankrollHistoryPoint]

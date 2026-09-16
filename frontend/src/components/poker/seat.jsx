@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 
 import { AnimatedCard } from '@/components/poker/animated-card'
 import { formatCurrency, formatPersonaLabel } from '@/lib/format'
@@ -17,14 +17,35 @@ import { formatCurrency, formatPersonaLabel } from '@/lib/format'
  * rather than dealing one player's whole hand at once) -- passed straight
  * through to AnimatedCard, which only actually plays it once per card,
  * the moment that card first appears.
+ *
+ * actionLabel is `{ id, text }` (or undefined) -- PokerTable derives it
+ * from the hand's own `actions` log and clears it again after a couple
+ * seconds, so this component just renders whatever it's handed. `id`
+ * (not `text`) is the AnimatePresence key so two consecutive identical
+ * actions (e.g. "Checks" twice) still replay the fade in/out.
  */
-const Seat = ({ player, isButton, dealDelay = 0 }) => {
+const Seat = ({ player, isButton, dealDelay = 0, actionLabel }) => {
     const label = player.is_hero ? 'You' : formatPersonaLabel(player.persona)
     const showCards = !player.folded
     const cards = player.hole_cards ? player.hole_cards.split(',') : [null, null]
 
     return (
-        <div className="flex flex-col items-center gap-1.5">
+        <div className="relative flex flex-col items-center gap-1.5">
+            <AnimatePresence>
+                {actionLabel && (
+                    <motion.span
+                        key={actionLabel.id}
+                        className="absolute -top-6 z-10 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap text-black shadow"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        {actionLabel.text}
+                    </motion.span>
+                )}
+            </AnimatePresence>
+
             <div className="flex items-center gap-1">
                 {showCards && (
                     <div className="flex gap-1">
