@@ -1402,3 +1402,25 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- how-to-play
 ```
+
+### Phase 4: 13x13 starting-hand matrix, color-coded worst to best
+
+Frontend only. New `frontend/src/lib/starting-hand-strength.js` scores all 169 starting-hand
+classes with the standard, widely-cited **Chen Formula** (Bill Chen) rather than hand-typed equity
+numbers -- a deterministic heuristic (highest-card value, doubled for pairs, +2 suited, a gap
+penalty, +1 straight-making bonus for well-connected low/mid cards) that famously scores 7-2 offsuit
+among the very worst hands in the whole table, matching its own folklore reputation as poker's
+canonical "worst hand." `strengthColor(score)` interpolates a continuous red -> amber -> green scale
+across the table's own min/max score (not a threshold split like `stat-classifier.js`'s
+`classifyStat`, since this chart is inherently a full ranking).
+
+New `frontend/src/components/education/starting-hand-matrix.jsx` renders the classic 13x13 grid
+(pairs on the diagonal, suited above it, offsuit below), wrapped in `overflow-x-auto` so it doesn't
+force page-wide horizontal scroll at mobile widths. Inserted into `how-to-play-page.jsx` as a new
+"Starting hand strength" section, right after "The four streets."
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- starting-hand how-to-play
+```
