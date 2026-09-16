@@ -17,4 +17,23 @@ describe('StatRadialGauge', () => {
         expect(screen.getByText('—')).toBeInTheDocument()
         expect(screen.getByText('3-bet')).toBeInTheDocument()
     })
+
+    it('renders a tooltip trigger when a tooltip is provided', () => {
+        render(
+            <StatRadialGauge
+                label="VPIP"
+                value={0.256}
+                statKey="vpip"
+                tooltip="Voluntarily Put money In Pot."
+            />,
+        )
+
+        expect(screen.getByLabelText('What is VPIP?')).toBeInTheDocument()
+    })
+
+    it('renders no tooltip trigger when none is provided', () => {
+        render(<StatRadialGauge label="VPIP" value={0.256} statKey="vpip" />)
+
+        expect(screen.queryByLabelText('What is VPIP?')).not.toBeInTheDocument()
+    })
 })

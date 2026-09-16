@@ -9,6 +9,7 @@ import { AppHeader } from '@/components/layout/app-header'
 import { useUserStats } from '@/hooks/use-user-stats'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { formatCurrency } from '@/lib/format'
+import { STAT_DESCRIPTIONS } from '@/lib/stat-descriptions'
 
 /**
  * Account-wide statistics, aggregated across every session the user has
@@ -79,10 +80,26 @@ const StatsPage = () => {
                 ) : (
                     <>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                            <StatTile label="Sessions played" value={stats.total_sessions} />
-                            <StatTile label="Sessions won" value={stats.sessions_won} />
-                            <StatTile label="Hands played" value={stats.total_hands} />
-                            <StatTile label="Hands won" value={stats.hands_won} />
+                            <StatTile
+                                label="Sessions played"
+                                value={stats.total_sessions}
+                                tooltip={STAT_DESCRIPTIONS['Sessions played']}
+                            />
+                            <StatTile
+                                label="Sessions won"
+                                value={stats.sessions_won}
+                                tooltip={STAT_DESCRIPTIONS['Sessions won']}
+                            />
+                            <StatTile
+                                label="Hands played"
+                                value={stats.total_hands}
+                                tooltip={STAT_DESCRIPTIONS['Hands played']}
+                            />
+                            <StatTile
+                                label="Hands won"
+                                value={stats.hands_won}
+                                tooltip={STAT_DESCRIPTIONS['Hands won']}
+                            />
                             <StatTile
                                 label="All-time winnings"
                                 value={`${stats.cumulative_bankroll_change >= 0 ? '+' : ''}${formatCurrency(
@@ -95,16 +112,19 @@ const StatsPage = () => {
                                           ? 'critical'
                                           : 'neutral'
                                 }
+                                tooltip={STAT_DESCRIPTIONS['All-time winnings']}
                             />
                             <StatTile
                                 label="Biggest win"
                                 value={stats.biggest_win != null ? formatCurrency(stats.biggest_win) : '—'}
                                 variant={stats.biggest_win != null ? 'good' : 'neutral'}
+                                tooltip={STAT_DESCRIPTIONS['Biggest win']}
                             />
                             <StatTile
                                 label="Biggest loss"
                                 value={stats.biggest_loss != null ? formatCurrency(stats.biggest_loss) : '—'}
                                 variant={stats.biggest_loss != null ? 'critical' : 'neutral'}
+                                tooltip={STAT_DESCRIPTIONS['Biggest loss']}
                             />
                         </div>
 
@@ -120,24 +140,52 @@ const StatsPage = () => {
                                 a closer look -- neither is a hard rule, just a signal.
                             </p>
                             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                                <StatRadialGauge label="VPIP" value={stats.vpip_rate} statKey="vpip" />
-                                <StatRadialGauge label="PFR" value={stats.pfr_rate} statKey="pfr" />
-                                <StatRadialGauge label="3-bet" value={stats.three_bet_rate} statKey="threeBet" />
-                                <StatRadialGauge label="ATS" value={stats.ats_rate} statKey="ats" />
-                                <StatRadialGauge label="WTSD" value={stats.wtsd_rate} statKey="wtsd" />
+                                <StatRadialGauge
+                                    label="VPIP"
+                                    value={stats.vpip_rate}
+                                    statKey="vpip"
+                                    tooltip={STAT_DESCRIPTIONS.VPIP}
+                                />
+                                <StatRadialGauge
+                                    label="PFR"
+                                    value={stats.pfr_rate}
+                                    statKey="pfr"
+                                    tooltip={STAT_DESCRIPTIONS.PFR}
+                                />
+                                <StatRadialGauge
+                                    label="3-bet"
+                                    value={stats.three_bet_rate}
+                                    statKey="threeBet"
+                                    tooltip={STAT_DESCRIPTIONS['3-bet']}
+                                />
+                                <StatRadialGauge
+                                    label="ATS"
+                                    value={stats.ats_rate}
+                                    statKey="ats"
+                                    tooltip={STAT_DESCRIPTIONS.ATS}
+                                />
+                                <StatRadialGauge
+                                    label="WTSD"
+                                    value={stats.wtsd_rate}
+                                    statKey="wtsd"
+                                    tooltip={STAT_DESCRIPTIONS.WTSD}
+                                />
                                 <StatRadialGauge
                                     label="W$SD"
                                     value={stats.won_at_showdown_rate}
                                     statKey="wonAtShowdown"
+                                    tooltip={STAT_DESCRIPTIONS['W$SD']}
                                 />
                                 <StatRadialGauge
                                     label="WWSF"
                                     value={stats.won_when_saw_flop_rate}
                                     statKey="wonWhenSawFlop"
+                                    tooltip={STAT_DESCRIPTIONS.WWSF}
                                 />
                                 <StatTile
                                     label="Aggression factor"
                                     value={stats.aggression_factor != null ? stats.aggression_factor.toFixed(2) : '—'}
+                                    tooltip={STAT_DESCRIPTIONS['Aggression factor']}
                                 />
                             </div>
                             <PlayStyleRadarChart stats={stats} />

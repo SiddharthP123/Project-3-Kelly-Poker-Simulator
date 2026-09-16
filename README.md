@@ -1424,3 +1424,26 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- starting-hand how-to-play
 ```
+
+### Phase 5: stat tooltips on the Stats page
+
+Frontend only. New `frontend/src/components/ui/tooltip.jsx` -- a thin wrapper around `radix-ui`'s
+`Tooltip.Root/Trigger/Content` (already a dependency, no install needed), styled consistently with
+the other shadcn primitives in `components/ui/`. New `frontend/src/lib/stat-descriptions.js` --
+full-name + one-sentence definitions for every abbreviation on the page (VPIP, PFR, 3-bet, ATS,
+WTSD, W$SD, WWSF, aggression factor, Win/Loss/Split/Fold %), authored from scratch since nothing
+like this existed anywhere in the app before.
+
+Both `StatTile` and `StatRadialGauge` gain an optional `tooltip` prop -- when passed, a small
+hover-info icon renders next to the label, so the hover affordance lives in those two shared
+components once rather than being duplicated at every call site. `WinRateSummary` (which already
+renders its 4 tiles via `StatTile`) and `StatsPage` now pass a `tooltip` for every stat they render.
+The radar chart's SVG axis labels are out of scope (not styleable DOM elements) -- covered anyway,
+since they reuse the same VPIP/PFR/Aggression/Win rate/Fold rate terms already tooltipped just above
+the chart.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- stat-tile stat-radial-gauge stats-page
+```
