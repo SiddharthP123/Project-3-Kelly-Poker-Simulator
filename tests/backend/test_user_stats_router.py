@@ -205,19 +205,29 @@ def test_calling_the_only_hand_counts_as_vpip_but_not_aggression(client, auth_he
 
 
 def test_raising_counts_toward_vpip_and_produces_a_positive_aggression_factor(client, auth_headers):
-    session = _create_session(client, auth_headers, num_opponents=2, starting_bankroll=1000.0)
+    # Two separate sessions, not two hands in one session: button_seat
+    # rotates by hand_number (poker/hand_flow.py: button_seat = (hand_number
+    # - 1) % num_seats), so hero (seat 0) is only guaranteed to be the
+    # button -- and thus act first preflop -- on a session's FIRST hand.
+    # On a session's second hand, hero would become the big blind and
+    # could win an uncontested walk with no decision at all if the other
+    # two seats both fold before hero ever acts, leaving
+    # legal_action_bounds None. A fresh session per hand keeps every deal
+    # at hand_number=1, the same guarantee every other test here relies on.
 
-    # First hand: hero calls (contributes to the aggression_factor
+    # First session/hand: hero calls (contributes to the aggression_factor
     # denominator) -- same shape as the VPIP-only test above.
-    called_hand = _deal(client, auth_headers, session['id'], seed=1)
-    _play_to_completion(client, auth_headers, session['id'], called_hand, action='call')
+    calling_session = _create_session(client, auth_headers, num_opponents=2, starting_bankroll=1000.0)
+    called_hand = _deal(client, auth_headers, calling_session['id'], seed=1)
+    _play_to_completion(client, auth_headers, calling_session['id'], called_hand, action='call')
 
-    # Second hand: hero shoves all-in preflop (the numerator) -- same
-    # pattern as test_game_router.py's multiway side-pot test.
-    raised_hand = _deal(client, auth_headers, session['id'], seed=2)
+    # Second session/hand: hero shoves all-in preflop (the numerator) --
+    # same pattern as test_game_router.py's multiway side-pot test.
+    raising_session = _create_session(client, auth_headers, num_opponents=2, starting_bankroll=1000.0)
+    raised_hand = _deal(client, auth_headers, raising_session['id'], seed=2)
     bounds = raised_hand['legal_action_bounds']
     response = _act(
-        client, auth_headers, session['id'], raised_hand['id'], 'raise', raise_to=bounds['max_raise_to'],
+        client, auth_headers, raising_session['id'], raised_hand['id'], 'raise', raise_to=bounds['max_raise_to'],
     )
     assert response.status_code == 200
     hand = response.json()
@@ -227,7 +237,7 @@ def test_raising_counts_toward_vpip_and_produces_a_positive_aggression_factor(cl
         # branch should be unreachable, but acts as a harmless fallback.
         guard += 1
         assert guard < 20
-        response = _act(client, auth_headers, session['id'], hand['id'], 'call')
+        response = _act(client, auth_headers, raising_session['id'], hand['id'], 'call')
         assert response.status_code == 200
         hand = response.json()
 
