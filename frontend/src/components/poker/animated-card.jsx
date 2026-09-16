@@ -6,6 +6,10 @@ const RED_SUITS = new Set(['h', 'd'])
 const SIZE_CLASSES = {
     sm: 'h-14 w-10 text-sm',
     md: 'h-20 w-14 text-lg',
+    // Hero's own hand in the side panel (Part 14 Phase 1) -- bigger than
+    // "md" (used for board/other-seat cards) so the panel actually fills
+    // the width it's given instead of leaving visible empty space.
+    lg: 'h-28 w-20 text-2xl',
 }
 
 /**

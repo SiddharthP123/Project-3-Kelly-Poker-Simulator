@@ -213,7 +213,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     ]
 
     return (
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
             <div className="text-center text-white">
                 <p className="text-sm text-white/60">Bankroll</p>
                 <p className="text-2xl font-semibold">{formatCurrency(session.current_bankroll)}</p>
@@ -225,7 +225,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                 <div className="relative flex-1">
                     <div
                         key={hand?.id ?? 'idle'}
-                        className="relative aspect-[16/10] w-full rounded-[40px] border-4 border-white/10 bg-gradient-to-b from-emerald-800 to-emerald-950 shadow-inner"
+                        className="relative aspect-[16/10] w-full rounded-[40px] border-8 border-amber-900 bg-gradient-to-b from-emerald-800 to-emerald-950 shadow-inner"
                     >
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
@@ -305,23 +305,23 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                     )}
                 </div>
 
-                <div className="flex w-full flex-col items-center gap-4 lg:w-[380px] lg:shrink-0">
+                <div className="flex w-full flex-col items-center gap-4 lg:w-[440px] lg:shrink-0">
                     {hand && (
-                        <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-lg border border-white/15 bg-black/60 p-4">
+                        <div className="flex w-full flex-col items-center gap-3 rounded-lg border border-white/15 bg-black/60 p-6">
                             <p className="text-sm font-medium text-white/70">Your hand</p>
-                            <div className="flex gap-2">
+                            <div className="flex gap-3">
                                 {heroCards.length > 0
                                     ? heroCards.map((card, index) => (
-                                          <AnimatedCard key={index} dealt card={card} size="md" dealDelay={index * 0.06} />
+                                          <AnimatedCard key={index} dealt card={card} size="lg" dealDelay={index * 0.06} />
                                       ))
                                     : [0, 1].map((index) => (
                                           <div
                                               key={index}
-                                              className="h-20 w-14 rounded-lg border border-dashed border-white/15"
+                                              className="h-28 w-20 rounded-lg border border-dashed border-white/15"
                                           />
                                       ))}
                             </div>
-                            <p className="text-xl font-semibold tabular-nums text-white">
+                            <p className="text-2xl font-semibold tabular-nums text-white">
                                 {formatCurrency(hero?.stack ?? 0)}
                             </p>
                         </div>

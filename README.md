@@ -40,7 +40,8 @@ solid and tested before any API or UI is built on top of it.
 | 10 | Frontend (React) | ✅ Done |
 | 11 | Deployment | ✅ Done |
 | 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
-| 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | 🚧 In progress |
+| 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | ✅ Done |
+| 14 | Player Education, Advanced Stats & Table Polish | 🚧 In progress |
 
 ## Setup
 
@@ -1143,4 +1144,33 @@ Run just this phase's tests:
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
 cd frontend && npm run test -- play-style-radar-chart stats-page profile-page
+```
+
+Part 13 (all 4 phases) is now complete.
+
+## Part 14: Player Education, Advanced Stats & Table Polish
+
+Driven by hands-on feedback after using the deployed Part 13 app: a first-time-player tutorial and
+Kelly Criterion education page, a much richer stat set (PFR, 3-bet%, ATS%, per-street fold/aggression
+frequency, showdown stats), and visual polish. Same pattern as every part before it -- only Phase 1
+starts immediately; Phases 2-6 (education pages, then the new stats, then a charts overhaul) each
+get their own check-in first.
+
+### Phase 1: header + table visual polish
+
+Frontend only.
+
+- **`AppHeader`** -- "Kelly Poker Simulator" goes from the default text size to `text-xl font-bold`.
+- **`PokerTable`** -- the felt's border changes from a thin `border-white/10` accent to a solid
+  8px `border-amber-900` (a wood-rail look), and the table widens (`max-w-6xl` → `max-w-7xl`,
+  matched in `GamePage`'s header row so the two stay aligned).
+- **Hero hand panel** -- `AnimatedCard` gains a new `lg` size (`h-28 w-20`, up from `md`'s
+  `h-20 w-14`) used only for hero's own cards in the right-side panel, which also widens
+  (`380px` → `440px`) and gets more padding -- filling the space that was previously just empty
+  around a smaller card size.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- poker-table animated-card
 ```
