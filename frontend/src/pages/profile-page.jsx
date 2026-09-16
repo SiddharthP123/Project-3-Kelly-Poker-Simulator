@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { AppHeader } from '@/components/layout/app-header'
 import { Button } from '@/components/ui/button'
@@ -191,6 +192,13 @@ const ProfilePage = () => {
                                 }
                             />
                         </div>
+                    </section>
+                )}
+
+                {stats && stats.total_hands > 0 && (
+                    <section className="flex flex-col gap-3">
+                        <h2 className="text-lg font-semibold">Play style</h2>
+                        <PlayStyleRadarChart stats={stats} />
                     </section>
                 )}
             </main>
