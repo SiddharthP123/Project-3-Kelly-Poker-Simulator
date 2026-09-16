@@ -1194,3 +1194,22 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- how-to-play
 ```
+
+### Phase 3: Kelly Criterion education page
+
+New public page (`frontend/src/pages/kelly-criterion-page.jsx`, `/kelly-criterion`), same
+public-route treatment as Phase 2. Content: the formula (`f* = (bp − q) / b`) explained term by
+term, two worked examples (the classic 60%-win/even-money textbook case from
+`poker/kelly.py`'s own `test_kelly_fraction_matches_classic_example`, and the poker pot-odds bridge
+from `kelly_fraction_from_pot_odds`'s own test), a small hand-rolled bar diagram (no chart library --
+plain styled `<div>`s) showing expected log-growth at several stake fractions computed directly from
+`poker.kelly.expected_log_growth(0.6, 1, f)`, real numbers rather than invented ones, and a "beyond
+poker" section connecting back to the README's own Ed Thorp framing. Glossary reuses Phase 2's
+`GlossaryEntry` component. `AppHeader` gains a "Kelly Criterion" link, same visibility rule as "How
+to Play."
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- kelly-criterion
+```
