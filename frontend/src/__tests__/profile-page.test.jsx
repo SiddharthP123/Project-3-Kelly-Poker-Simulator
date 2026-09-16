@@ -24,6 +24,13 @@ const emptyStats = {
     win_count: 0, loss_count: 0, split_count: 0, fold_count: 0,
     win_rate: 0, loss_rate: 0, split_rate: 0, fold_rate: 0,
     cumulative_bankroll_change: 0, biggest_win: null, biggest_loss: null,
+    vpip_rate: 0, aggression_factor: null,
+    pfr_rate: 0, three_bet_rate: null, ats_rate: null,
+    wtsd_rate: 0, won_at_showdown_rate: null, won_when_saw_flop_rate: null,
+    fold_frequency_by_street: { preflop: null, flop: null, turn: null, river: null },
+    aggression_frequency_by_street: { preflop: null, flop: null, turn: null, river: null },
+    hands_won: 0, sessions_won: 0,
+    bankroll_history: [],
 }
 
 const renderProfilePage = () =>

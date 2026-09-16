@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-chart'
 import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
+import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
 import { AppHeader } from '@/components/layout/app-header'
@@ -79,9 +80,11 @@ const StatsPage = () => {
                     <>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                             <StatTile label="Sessions played" value={stats.total_sessions} />
+                            <StatTile label="Sessions won" value={stats.sessions_won} />
                             <StatTile label="Hands played" value={stats.total_hands} />
+                            <StatTile label="Hands won" value={stats.hands_won} />
                             <StatTile
-                                label="Cumulative change"
+                                label="All-time winnings"
                                 value={`${stats.cumulative_bankroll_change >= 0 ? '+' : ''}${formatCurrency(
                                     stats.cumulative_bankroll_change,
                                 )}`}
@@ -110,16 +113,57 @@ const StatsPage = () => {
                             <WinRateSummary winRate={winRate} />
                         </section>
 
-                        <section className="flex flex-col gap-3">
+                        <section className="flex flex-col gap-4">
                             <h2 className="text-lg font-semibold">Play style</h2>
-                            <div className="grid grid-cols-2 gap-3">
-                                <StatTile label="VPIP" value={`${(stats.vpip_rate * 100).toFixed(1)}%`} />
+                            <p className="text-sm text-muted-foreground">
+                                Green means the stat sits in a generally healthy range; red flags something worth
+                                a closer look -- neither is a hard rule, just a signal.
+                            </p>
+                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                                <StatRadialGauge label="VPIP" value={stats.vpip_rate} statKey="vpip" />
+                                <StatRadialGauge label="PFR" value={stats.pfr_rate} statKey="pfr" />
+                                <StatRadialGauge label="3-bet" value={stats.three_bet_rate} statKey="threeBet" />
+                                <StatRadialGauge label="ATS" value={stats.ats_rate} statKey="ats" />
+                                <StatRadialGauge label="WTSD" value={stats.wtsd_rate} statKey="wtsd" />
+                                <StatRadialGauge
+                                    label="W$SD"
+                                    value={stats.won_at_showdown_rate}
+                                    statKey="wonAtShowdown"
+                                />
+                                <StatRadialGauge
+                                    label="WWSF"
+                                    value={stats.won_when_saw_flop_rate}
+                                    statKey="wonWhenSawFlop"
+                                />
                                 <StatTile
                                     label="Aggression factor"
                                     value={stats.aggression_factor != null ? stats.aggression_factor.toFixed(2) : '—'}
                                 />
                             </div>
                             <PlayStyleRadarChart stats={stats} />
+                        </section>
+
+                        <section className="flex flex-col gap-3">
+                            <h2 className="text-lg font-semibold">Fold / aggression frequency by street</h2>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                {['preflop', 'flop', 'turn', 'river'].map((street) => (
+                                    <div key={street} className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
+                                        <p className="font-medium capitalize">{street}</p>
+                                        <p className="text-muted-foreground">
+                                            Fold:{' '}
+                                            {stats.fold_frequency_by_street[street] != null
+                                                ? `${(stats.fold_frequency_by_street[street] * 100).toFixed(0)}%`
+                                                : '—'}
+                                        </p>
+                                        <p className="text-muted-foreground">
+                                            Raise:{' '}
+                                            {stats.aggression_frequency_by_street[street] != null
+                                                ? `${(stats.aggression_frequency_by_street[street] * 100).toFixed(0)}%`
+                                                : '—'}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
                         </section>
 
                         <section className="flex flex-col gap-3">

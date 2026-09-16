@@ -26,7 +26,13 @@ const emptyStats = {
     win_count: 0, loss_count: 0, split_count: 0, fold_count: 0,
     win_rate: 0, loss_rate: 0, split_rate: 0, fold_rate: 0,
     cumulative_bankroll_change: 0, biggest_win: null, biggest_loss: null,
-    vpip_rate: 0, aggression_factor: null, bankroll_history: [],
+    vpip_rate: 0, aggression_factor: null,
+    pfr_rate: 0, three_bet_rate: null, ats_rate: null,
+    wtsd_rate: 0, won_at_showdown_rate: null, won_when_saw_flop_rate: null,
+    fold_frequency_by_street: { preflop: null, flop: null, turn: null, river: null },
+    aggression_frequency_by_street: { preflop: null, flop: null, turn: null, river: null },
+    hands_won: 0, sessions_won: 0,
+    bankroll_history: [],
 }
 
 const realStats = {
@@ -35,6 +41,11 @@ const realStats = {
     win_rate: 0.4, loss_rate: 0.2, split_rate: 0.2, fold_rate: 0.2,
     cumulative_bankroll_change: 150.5, biggest_win: 200, biggest_loss: -75,
     vpip_rate: 0.6, aggression_factor: 1.5,
+    pfr_rate: 0.22, three_bet_rate: 0.08, ats_rate: 0.3,
+    wtsd_rate: 0.25, won_at_showdown_rate: 0.55, won_when_saw_flop_rate: 0.48,
+    fold_frequency_by_street: { preflop: 0.1, flop: 0.2, turn: 0.3, river: 0.4 },
+    aggression_frequency_by_street: { preflop: 0.5, flop: 0.4, turn: 0.3, river: 0.2 },
+    hands_won: 3, sessions_won: 1,
     bankroll_history: [
         { bankroll_after: 1000, logged_at: '2026-08-01T00:00:00Z' },
         { bankroll_after: 1150.5, logged_at: '2026-08-02T00:00:00Z' },
@@ -68,6 +79,11 @@ describe('StatsPage', () => {
         expect(screen.getByText('-$75.00')).toBeInTheDocument() // biggest loss
         expect(screen.getByText('60.0%')).toBeInTheDocument() // VPIP
         expect(screen.getByText('1.50')).toBeInTheDocument() // aggression factor
+        expect(screen.getByText('22.0%')).toBeInTheDocument() // PFR
+        expect(screen.getByText('30.0%')).toBeInTheDocument() // ATS
+        expect(screen.getByText('Sessions won')).toBeInTheDocument()
+        expect(screen.getByText('Hands won')).toBeInTheDocument()
+        expect(screen.getByText(/fold \/ aggression frequency by street/i)).toBeInTheDocument()
         expect(screen.getByText(/bankroll over time/i)).toBeInTheDocument()
     })
 

@@ -41,7 +41,7 @@ solid and tested before any API or UI is built on top of it.
 | 11 | Deployment | ✅ Done |
 | 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
 | 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | ✅ Done |
-| 14 | Player Education, Advanced Stats & Table Polish | 🚧 In progress |
+| 14 | Player Education, Advanced Stats & Table Polish | ✅ Done |
 
 ## Setup
 
@@ -1285,3 +1285,40 @@ Run just this phase's tests:
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
 ```
+
+### Phase 6: stats dashboard overhaul -- charts + performance coloring
+
+Frontend only. The final phase of Part 14's plan.
+
+- **New `frontend/src/lib/stat-classifier.js`** -- `classifyStat(statKey, value)` turns a raw stat
+  into `'good' | 'critical' | 'neutral'` against standard, widely-cited poker HUD "healthy range"
+  guidance (not derived from this project's own bot personas), matching `StatTile`'s own existing
+  variant vocabulary so a classified stat reuses the exact same color tokens a plain tile already
+  uses. `null` (no data yet) or a stat the classifier doesn't cover both resolve to `'neutral'` --
+  win rate/fold rate specifically aren't covered, since no fixed "good" range makes sense without
+  knowing `num_opponents`.
+- **`PlayStyleRadarChart`** extended from 4 to 5 axes (adds PFR) and re-themed: each axis's dot is
+  now colored via `classifyStat` (green/red/neutral) rather than every point sharing the same single
+  accent color, via a custom SVG `dot` renderer on `Radar` (recharts doesn't support per-vertex fill
+  out of the box).
+- **New `frontend/src/components/dashboard/stat-radial-gauge.jsx`** (`StatRadialGauge`) -- a
+  single-stat circular gauge using `recharts`' `RadialBarChart` (already a dependency, no new
+  package), colored the same way. `StatsPage` renders one per headline percentage stat (VPIP, PFR,
+  3-bet%, ATS%, WTSD%, W$SD%, WWSF%); `ProfilePage`'s existing play-style section gets a trimmed pair
+  (VPIP, WTSD%) alongside its radar.
+- **`StatsPage`** also gains: a new "Fold / aggression frequency by street" section (plain
+  per-street tiles, not classified -- per-street thresholds are genuinely context-dependent and out
+  of scope for the classifier); `sessions_won`/`hands_won` tiles; the existing "Cumulative change"
+  tile relabeled "All-time winnings" (no new computation, `cumulative_bankroll_change` already *is*
+  this).
+- `WinRateSummary`'s existing segmented bar (Part 12 Phase 7) is left as-is, not re-themed -- it
+  already color-codes win/loss/split/fold and wasn't part of this ask.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- stat-classifier stat-radial-gauge play-style-radar-chart stats-page profile-page
+```
+
+Part 14 (all 6 phases) is now complete -- player education pages, a much richer stat set, and a
+charts overhaul with performance-based coloring.
