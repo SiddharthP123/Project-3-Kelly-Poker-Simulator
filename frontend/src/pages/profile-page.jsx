@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
+import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { AppHeader } from '@/components/layout/app-header'
 import { Button } from '@/components/ui/button'
@@ -198,6 +199,10 @@ const ProfilePage = () => {
                 {stats && stats.total_hands > 0 && (
                     <section className="flex flex-col gap-3">
                         <h2 className="text-lg font-semibold">Play style</h2>
+                        <div className="flex gap-6">
+                            <StatRadialGauge label="VPIP" value={stats.vpip_rate} statKey="vpip" />
+                            <StatRadialGauge label="WTSD" value={stats.wtsd_rate} statKey="wtsd" />
+                        </div>
                         <PlayStyleRadarChart stats={stats} />
                     </section>
                 )}
