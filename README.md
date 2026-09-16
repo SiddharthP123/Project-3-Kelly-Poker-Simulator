@@ -1447,3 +1447,7 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- stat-tile stat-radial-gauge stats-page
 ```
+
+Phases 1-5 of Part 15 are now complete. A 6th, deferred phase -- animations and UI polish via the
+`magic`/`21st` MCP tools -- is on hold pending a working connection, and will get its own check-in
+once that's resolved.
