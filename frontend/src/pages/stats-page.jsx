@@ -43,7 +43,7 @@ const StatsPage = () => {
 
     if (errorMessage) {
         return (
-            <div className="flex min-h-svh flex-col">
+            <div className="dark flex min-h-svh flex-col bg-background text-foreground">
                 <AppHeader />
                 <p className="p-4 text-center text-sm text-destructive">{errorMessage}</p>
             </div>
@@ -52,7 +52,7 @@ const StatsPage = () => {
 
     if (!stats) {
         return (
-            <div className="flex min-h-svh flex-col">
+            <div className="dark flex min-h-svh flex-col bg-background text-foreground">
                 <AppHeader />
                 <p className="p-4 text-center text-muted-foreground">Loading...</p>
             </div>
@@ -68,7 +68,7 @@ const StatsPage = () => {
     }
 
     return (
-        <div className="flex min-h-svh flex-col">
+        <div className="dark flex min-h-svh flex-col bg-background text-foreground">
             <AppHeader />
             <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4">
                 <h1 className="text-xl font-semibold">Your stats</h1>

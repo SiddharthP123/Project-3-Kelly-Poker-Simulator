@@ -37,7 +37,12 @@ const StatRadialGauge = ({ label, value, statKey, tooltip }) => {
                         render as a full circle regardless of the actual
                         percentage. */}
                     <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                    <RadialBar dataKey="value" cornerRadius={6} background />
+                    {/* Explicit fill -- this chart isn't wrapped in the shared
+                        ChartContainer (see ui/chart.jsx), which is what
+                        neutralizes recharts' own hardcoded light-gray
+                        background-sector default elsewhere; without this the
+                        backdrop arc stays light-gray even on a dark page. */}
+                    <RadialBar dataKey="value" cornerRadius={6} background={{ fill: 'var(--muted)' }} />
                 </RadialBarChart>
                 <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums">
                     {value == null ? '—' : `${percent.toFixed(1)}%`}

@@ -111,7 +111,7 @@ const ProfilePage = () => {
 
     if (!user) {
         return (
-            <div className="flex min-h-svh flex-col">
+            <div className="dark flex min-h-svh flex-col bg-background text-foreground">
                 <AppHeader />
                 <p className="p-4 text-center text-muted-foreground">Loading...</p>
             </div>
@@ -119,7 +119,7 @@ const ProfilePage = () => {
     }
 
     return (
-        <div className="flex min-h-svh flex-col">
+        <div className="dark flex min-h-svh flex-col bg-background text-foreground">
             <AppHeader />
             <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4">
                 <h1 className="text-xl font-semibold">Your profile</h1>
