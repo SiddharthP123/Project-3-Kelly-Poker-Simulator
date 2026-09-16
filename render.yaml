@@ -1,6 +1,14 @@
-# Render Blueprint -- defines the backend web service and its Postgres
-# database together, so "New > Blueprint" in the Render dashboard can
-# stand up both in one pass instead of manual per-resource setup.
+# Render Blueprint -- defines the backend web service. "New > Blueprint"
+# in the Render dashboard can stand this up in one pass.
+#
+# Postgres is hosted on Supabase, not Render's own database (Render's
+# free Postgres tier deletes the whole database after 30 days; Supabase's
+# free tier only pauses on inactivity and resumes with a manual click in
+# its dashboard -- no data loss, no recreating tables from scratch every
+# month). DATABASE_URL is therefore `sync: false` (manually entered in
+# the Render dashboard from Supabase's own connection string), not
+# `fromDatabase` -- that Blueprint field only works for a database Render
+# itself provisions.
 #
 # See README.md "Part 11: Deployment" for the full step-by-step runbook,
 # including what happens with each `sync: false` prompt below.
@@ -15,10 +23,11 @@ services:
     region: oregon # change to whichever region is closest to you
     healthCheckPath: /health
     envVars:
+      # Set this to your Supabase project's connection string (Project
+      # Settings -> Database -> Connection string -> URI). See README's
+      # Part 11 runbook for the full setup steps.
       - key: DATABASE_URL
-        fromDatabase:
-          name: kelly-poker-db
-          property: connectionString
+        sync: false
       # Render prompts for this during Blueprint creation -- generate
       # your own with: python3 -c "import secrets; print(secrets.token_hex(32))"
       # Never reuse backend/config.py's dev-only default here.
@@ -33,8 +42,3 @@ services:
       # redeploys automatically when an env var changes.
       - key: CORS_ALLOWED_ORIGINS
         value: http://localhost:3000
-
-databases:
-  - name: kelly-poker-db
-    plan: free
-    region: oregon # keep this in sync with the web service's region above
