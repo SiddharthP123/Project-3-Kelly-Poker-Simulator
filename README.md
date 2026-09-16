@@ -1174,3 +1174,23 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- poker-table animated-card
 ```
+
+### Phase 2: "How to Play" tutorial page
+
+New public page (`frontend/src/pages/how-to-play-page.jsx`, `/how-to-play`) -- registered *outside*
+`ProtectedRoute` in `app.jsx`, so a brand-new visitor can read it before ever signing up, matching
+the "first-time player" framing directly. Pure static content, no backend calls: hole cards vs. the
+board, the four streets (preflop/flop/turn/river), check/call/fold/raise in plain language,
+showdown/split pots, and a glossary. The glossary renders via a new shared `GlossaryEntry`
+component (`frontend/src/components/education/`), reused as-is by Phase 3's Kelly Criterion page so
+both glossaries look identical rather than duplicating markup.
+
+`AppHeader` gains a "How to Play" link, visible whether or not a user is logged in (previously every
+nav link lived inside the `user &&` guard); `LoginPage`/`SignupPage` also gain a small link to it,
+since an unauthenticated visitor lands there first.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- how-to-play
+```

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/layout/protected-route'
 import { DashboardPage } from '@/pages/dashboard-page'
 import { GamePage } from '@/pages/game-page'
+import { HowToPlayPage } from '@/pages/how-to-play-page'
 import { LobbyPage } from '@/pages/lobby-page'
 import { LoginPage } from '@/pages/login-page'
 import { ProfilePage } from '@/pages/profile-page'
@@ -13,6 +14,7 @@ const App = () => (
     <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/how-to-play" element={<HowToPlayPage />} />
 
         <Route element={<ProtectedRoute />}>
             <Route path="/" element={<LobbyPage />} />

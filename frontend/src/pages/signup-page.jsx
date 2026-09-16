@@ -81,6 +81,12 @@ const SignupPage = () => {
                                 Log in
                             </Link>
                         </p>
+                        <p className="text-center text-sm text-muted-foreground">
+                            New to poker?{' '}
+                            <Link to="/how-to-play" className="underline">
+                                Learn how to play
+                            </Link>
+                        </p>
                     </form>
                 </CardContent>
             </Card>
