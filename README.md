@@ -1251,3 +1251,37 @@ Run just this phase's tests:
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
 ```
+
+### Phase 5: showdown, per-street, and volume stats
+
+Backend only, same file, building on Phase 4's queries (no new ones except `HandHistory.board_cards`,
+now also selected alongside `id`/`button_seat`).
+
+- **WTSD%** (went to showdown) -- fraction of *all* hands where more than one seat was still
+  non-folded at `street == 'complete'` (a genuine showdown, not a fold-out). Reuses the existing
+  win/loss/split loop's own per-hand player rows -- no new query, just an extra counter alongside
+  the existing winner count.
+- **W$SD%** (won at showdown) -- of the showdown hands above, the fraction hero won. `None` (not `0`)
+  until hero has actually reached a showdown.
+- **WWSF%** (won when saw flop) -- of hands where hero didn't fold preflop *and* a flop was actually
+  dealt (`board_cards` has ≥ 3 cards -- some hands end preflop with no flop at all), the fraction
+  hero won.
+- **Per-street fold/aggression frequency** (preflop/flop/turn/river) -- for each street, folds
+  (resp. raises) hero made divided by hero's own real decisions on that street (excludes
+  `post_blind`, which isn't a decision) -- a *frequency* over hero's own choices, distinct from
+  `aggression_factor`'s raises-to-calls ratio across every street. `None` for a street hero has
+  never had a decision on.
+- **`hands_won`** (`win_count + split_count`) and **`sessions_won`** (ended sessions where
+  `current_bankroll > starting_bankroll` -- only *decided* sessions count; an in-progress session's
+  bankroll can still move either way).
+
+The test helper introduced for Phase 4's 3-bet% scenario (`_insert_complete_hand`, writing
+`HandHistory`/`HandPlayer`/`HandAction` rows directly) is generalized here to accept an arbitrary
+list of players and a `board_cards` value, since showdown/per-street scenarios need exact multi-seat
+and multi-street control that live bot decisions can't reliably provide either.
+
+Run just this phase's tests:
+
+```bash
+pytest tests/backend/test_user_stats_router.py -v
+```

@@ -17,6 +17,12 @@ Part 14 Phase 4 adds three more, all needing to know how much action
 already happened before hero's own preflop decision on that street --
 a genuinely different (sequence/position-aware) computation from the
 flat filters above, so it gets its own helper, _hero_preflop_decisions.
+
+Part 14 Phase 5 adds showdown stats (WTSD%/W$SD%/WWSF%), per-street
+fold/aggression frequency, and volume/win-rate variants (hands_won,
+sessions_won) -- all derived from data already fetched for the stats
+above, no new queries needed except one extra HandHistory column
+(board_cards).
 """
 
 from collections import defaultdict
@@ -24,6 +30,8 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from backend.models import BankrollLog, GameSession, HandAction, HandHistory, HandPlayer, User
+
+_STREETS = ['preflop', 'flop', 'turn', 'river']
 
 
 def _hero_preflop_decisions(actions_by_hand, button_seat_by_hand):
@@ -69,6 +77,9 @@ def _hero_preflop_decisions(actions_by_hand, button_seat_by_hand):
 def compute_user_stats(user: User, db: Session) -> dict:
     sessions = db.query(GameSession).filter_by(user_id=user.id).all()
     cumulative_bankroll_change = sum(s.current_bankroll - s.starting_bankroll for s in sessions)
+    # Only a decided (ended) session counts as won or not -- an in-progress
+    # session's bankroll can still move either way before it's over.
+    sessions_won = sum(1 for s in sessions if s.status == 'ended' and s.current_bankroll > s.starting_bankroll)
 
     empty_hand_stats = {
         'total_hands': 0,
@@ -77,11 +88,15 @@ def compute_user_stats(user: User, db: Session) -> dict:
         'biggest_win': None, 'biggest_loss': None,
         'vpip_rate': 0.0, 'aggression_factor': None,
         'pfr_rate': 0.0, 'three_bet_rate': None, 'ats_rate': None,
+        'wtsd_rate': 0.0, 'won_at_showdown_rate': None, 'won_when_saw_flop_rate': None,
+        'fold_frequency_by_street': dict.fromkeys(_STREETS),
+        'aggression_frequency_by_street': dict.fromkeys(_STREETS),
+        'hands_won': 0,
     }
 
     if not sessions:
         return {
-            'total_sessions': 0, 'cumulative_bankroll_change': 0.0,
+            'total_sessions': 0, 'cumulative_bankroll_change': 0.0, 'sessions_won': 0,
             'bankroll_history': [], **empty_hand_stats,
         }
 
@@ -101,17 +116,19 @@ def compute_user_stats(user: User, db: Session) -> dict:
     ]
 
     complete_hands = (
-        db.query(HandHistory.id, HandHistory.button_seat)
+        db.query(HandHistory.id, HandHistory.button_seat, HandHistory.board_cards)
         .filter(HandHistory.game_session_id.in_(session_ids), HandHistory.street == 'complete')
         .all()
     )
     complete_hand_ids = [row.id for row in complete_hands]
     button_seat_by_hand = {row.id: row.button_seat for row in complete_hands}
+    board_cards_by_hand = {row.id: row.board_cards for row in complete_hands}
 
     if not complete_hand_ids:
         return {
             'total_sessions': len(sessions),
             'cumulative_bankroll_change': cumulative_bankroll_change,
+            'sessions_won': sessions_won,
             'bankroll_history': bankroll_history,
             **empty_hand_stats,
         }
@@ -119,10 +136,13 @@ def compute_user_stats(user: User, db: Session) -> dict:
     all_players = db.query(HandPlayer).filter(HandPlayer.hand_history_id.in_(complete_hand_ids)).all()
 
     winner_counts_by_hand = defaultdict(int)
+    non_folded_counts_by_hand = defaultdict(int)
     hero_by_hand = {}
     for player in all_players:
         if player.is_winner:
             winner_counts_by_hand[player.hand_history_id] += 1
+        if not player.folded:
+            non_folded_counts_by_hand[player.hand_history_id] += 1
         if player.is_hero:
             hero_by_hand[player.hand_history_id] = player
 
@@ -216,6 +236,58 @@ def compute_user_stats(user: User, db: Session) -> dict:
         if ats_opportunities else None
     )
 
+    # WTSD% (went to showdown): fraction of ALL hands where more than one
+    # seat was still non-folded at street == 'complete' -- a genuine
+    # showdown, not a fold-out. Reuses non_folded_counts_by_hand, already
+    # built above for the win/loss/split loop, no new query.
+    showdown_hand_ids = {hid for hid, count in non_folded_counts_by_hand.items() if count > 1}
+    wtsd_rate = rate(len(showdown_hand_ids))
+
+    # W$SD% (won at showdown): of the showdown hands above, the fraction
+    # hero won. None (not 0) until hero has actually reached a showdown.
+    won_at_showdown_rate = (
+        sum(1 for hid in showdown_hand_ids if hero_by_hand[hid].is_winner) / len(showdown_hand_ids)
+        if showdown_hand_ids else None
+    )
+
+    # WWSF% (won when saw flop): of hands where hero didn't fold preflop
+    # AND a flop was actually dealt (some hands end preflop with no flop
+    # at all -- board_cards has < 3 cards then), the fraction hero won.
+    hero_folded_preflop_hand_ids = {
+        action.hand_history_id for action in hero_actions
+        if action.street == 'preflop' and action.action == 'fold'
+    }
+    saw_flop_hand_ids = {
+        hid for hid in hero_by_hand
+        if hid not in hero_folded_preflop_hand_ids
+        and len((board_cards_by_hand.get(hid) or '').split(',')) >= 3
+    }
+    won_when_saw_flop_rate = (
+        sum(1 for hid in saw_flop_hand_ids if hero_by_hand[hid].is_winner) / len(saw_flop_hand_ids)
+        if saw_flop_hand_ids else None
+    )
+
+    # Per-street fold/aggression frequency: for each street, folds (resp.
+    # raises) hero made divided by hero's total real decisions on that
+    # street -- excludes post_blind (forced, not a decision). A frequency
+    # (0-1 over hero's OWN decisions on that street), distinct from
+    # aggression_factor's raises-to-calls ratio across every street.
+    # None for a street hero has never had a decision on yet.
+    fold_frequency_by_street = {}
+    aggression_frequency_by_street = {}
+    for street in _STREETS:
+        street_decisions = [a for a in hero_actions if a.street == street and a.action != 'post_blind']
+        if not street_decisions:
+            fold_frequency_by_street[street] = None
+            aggression_frequency_by_street[street] = None
+            continue
+        fold_frequency_by_street[street] = (
+            sum(1 for a in street_decisions if a.action == 'fold') / len(street_decisions)
+        )
+        aggression_frequency_by_street[street] = (
+            sum(1 for a in street_decisions if a.action == 'raise_to') / len(street_decisions)
+        )
+
     return {
         'total_sessions': len(sessions),
         'total_hands': total_hands,
@@ -231,5 +303,12 @@ def compute_user_stats(user: User, db: Session) -> dict:
         'pfr_rate': pfr_rate,
         'three_bet_rate': three_bet_rate,
         'ats_rate': ats_rate,
+        'wtsd_rate': wtsd_rate,
+        'won_at_showdown_rate': won_at_showdown_rate,
+        'won_when_saw_flop_rate': won_when_saw_flop_rate,
+        'fold_frequency_by_street': fold_frequency_by_street,
+        'aggression_frequency_by_street': aggression_frequency_by_street,
+        'hands_won': win_count + split_count,
+        'sessions_won': sessions_won,
         'bankroll_history': bankroll_history,
     }

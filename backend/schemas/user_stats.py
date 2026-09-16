@@ -51,6 +51,19 @@ class UserStatsResponse(ApiModel):
     three_bet_rate: float | None
     ats_rate: float | None
 
+    # Part 14 Phase 5 -- showdown stats, per-street frequencies, and
+    # volume/win-rate variants, all derived from data already fetched for
+    # the stats above (see compute_user_stats).
+    wtsd_rate: float  # 0.0-until-there's-data, like vpip_rate/pfr_rate
+    won_at_showdown_rate: float | None  # None until hero has reached a showdown
+    won_when_saw_flop_rate: float | None  # None until hero has seen a flop without folding preflop
+    # Keyed by street ('preflop'/'flop'/'turn'/'river'); each value is
+    # None until hero has had at least one real decision on that street.
+    fold_frequency_by_street: dict[str, float | None]
+    aggression_frequency_by_street: dict[str, float | None]
+    hands_won: int  # win_count + split_count
+    sessions_won: int  # ended sessions where current_bankroll > starting_bankroll
+
     # Every BankrollLog row across every one of the user's sessions, in
     # chronological order -- unlike the per-session-only chart from Part
     # 10, a session boundary shows up here as a real jump back to that
