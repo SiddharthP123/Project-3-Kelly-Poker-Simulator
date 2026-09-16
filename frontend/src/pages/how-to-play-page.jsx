@@ -9,7 +9,7 @@ import { GlossaryEntry } from '@/components/education/glossary-entry'
  * plus a glossary reused (via GlossaryEntry) by the Kelly Criterion page.
  */
 const HowToPlayPage = () => (
-    <div className="flex min-h-svh flex-col">
+    <div className="dark flex min-h-svh flex-col bg-background text-foreground">
         <AppHeader />
         <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 p-4 pb-16">
             <div className="flex flex-col gap-2 pt-4">
