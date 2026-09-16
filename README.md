@@ -1380,3 +1380,25 @@ Run just this phase's tests:
 ```bash
 cd frontend && npm run test -- login-page signup-page how-to-play kelly-criterion
 ```
+
+### Phase 3: illustrated hand rankings + illustrated preflop/flop/turn/river example
+
+Frontend only, `frontend/src/pages/how-to-play-page.jsx`, reusing the existing `PlayingCard`
+(`frontend/src/components/poker/playing-card.jsx` -- static, theme-independent, takes `card="Ah"`
+notation) rather than `AnimatedCard`'s deal/flip machinery, which this static content doesn't need.
+
+- **New `frontend/src/components/education/hand-rankings.jsx`** -- the 10 standard hand categories,
+  worst to best, each with a concrete 5-card example and a one-line description (e.g. Royal Flush:
+  `Th Jh Qh Kh Ah`). Inserted as a new "Hand rankings" section between "Your hand" and "The four
+  streets."
+- **New `frontend/src/components/education/street-progression.jsx`** -- a single worked hand shown
+  across all 4 streets: hero's 2 hole cards stay fixed while the board builds up 0 -> 3 -> 4 -> 5
+  cards, undealt slots rendered as dashed placeholders matching the live table's own empty-slot
+  pattern. Replaces the previous plain-text bullet list in "The four streets" (the section's intro
+  prose stays, just above the diagram).
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- how-to-play
+```

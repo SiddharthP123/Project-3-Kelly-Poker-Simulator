@@ -44,4 +44,44 @@ describe('HowToPlayPage', () => {
         expect(screen.getByText('Equity')).toBeInTheDocument()
         expect(screen.getByText('All-in')).toBeInTheDocument()
     })
+
+    it('illustrates all 10 hand rankings, worst to best', () => {
+        render(
+            <MemoryRouter>
+                <AuthProvider>
+                    <HowToPlayPage />
+                </AuthProvider>
+            </MemoryRouter>,
+        )
+
+        expect(screen.getByRole('heading', { name: /hand rankings/i })).toBeInTheDocument()
+        ;[
+            'High Card',
+            'Pair',
+            'Two Pair',
+            'Three of a Kind',
+            'Straight',
+            'Flush',
+            'Full House',
+            'Four of a Kind',
+            'Straight Flush',
+            'Royal Flush',
+        ].forEach((handName) => {
+            expect(screen.getByText(handName)).toBeInTheDocument()
+        })
+    })
+
+    it('illustrates the board building up across all 4 streets', () => {
+        render(
+            <MemoryRouter>
+                <AuthProvider>
+                    <HowToPlayPage />
+                </AuthProvider>
+            </MemoryRouter>,
+        )
+
+        ;['Preflop', 'Flop', 'Turn', 'River'].forEach((streetName) => {
+            expect(screen.getByText(streetName)).toBeInTheDocument()
+        })
+    })
 })
