@@ -1,15 +1,19 @@
+import { InfoIcon } from 'lucide-react'
 import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 
 import { CLASSIFICATION_COLORS, classifyStat } from '@/lib/stat-classifier'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 /**
  * A single-stat circular gauge (VPIP/PFR/WTSD%-style) -- `value` is a
  * 0-1 fraction (or null for "no data yet"), rendered as a 0-100% arc and
  * colored green/red/neutral via classifyStat, the same performance-based
  * meaning as the extended PlayStyleRadarChart's dots. `statKey` is one of
- * stat-classifier.js's own STAT_RANGES keys.
+ * stat-classifier.js's own STAT_RANGES keys. `tooltip`, when passed,
+ * renders a small hover-info icon next to the label explaining the
+ * (often abbreviated) stat.
  */
-const StatRadialGauge = ({ label, value, statKey }) => {
+const StatRadialGauge = ({ label, value, statKey, tooltip }) => {
     const percent = value == null ? 0 : Math.round(value * 1000) / 10
     const color = CLASSIFICATION_COLORS[classifyStat(statKey, value)]
     const data = [{ value: percent, fill: color }]
@@ -39,7 +43,20 @@ const StatRadialGauge = ({ label, value, statKey }) => {
                     {value == null ? '—' : `${percent.toFixed(1)}%`}
                 </div>
             </div>
-            <p className="text-xs text-muted-foreground">{label}</p>
+            <div className="flex items-center gap-1">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                {tooltip && (
+                    <Tooltip>
+                        <TooltipTrigger
+                            aria-label={`What is ${label}?`}
+                            className="text-muted-foreground/60 hover:text-muted-foreground"
+                        >
+                            <InfoIcon className="size-3" />
+                        </TooltipTrigger>
+                        <TooltipContent>{tooltip}</TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
         </div>
     )
 }

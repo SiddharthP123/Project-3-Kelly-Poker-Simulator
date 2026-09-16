@@ -87,6 +87,18 @@ describe('StatsPage', () => {
         expect(screen.getByText(/bankroll over time/i)).toBeInTheDocument()
     })
 
+    it('shows hover tooltips explaining what each stat abbreviation means', async () => {
+        global.fetch = vi.fn().mockResolvedValue(jsonResponse(realStats))
+
+        renderStatsPage()
+
+        await waitFor(() => expect(screen.getByText('Sessions played')).toBeInTheDocument())
+        expect(screen.getByLabelText('What is VPIP?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is PFR?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is WTSD?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is Aggression factor?')).toBeInTheDocument()
+    })
+
     it('shows a dash for aggression factor and a play-style prompt when there is no hand data yet', async () => {
         global.fetch = vi.fn().mockResolvedValue(
             jsonResponse({

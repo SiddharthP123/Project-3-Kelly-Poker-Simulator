@@ -1,5 +1,6 @@
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { formatPercent } from '@/lib/format'
+import { STAT_DESCRIPTIONS } from '@/lib/stat-descriptions'
 
 // hero-win/loss/split/fold are status-meaning outcomes (2 good/bad, 2
 // neutral), not arbitrary categories -- see stat-tile.jsx's variant tokens.
@@ -13,10 +14,30 @@ const SEGMENTS = [
 const WinRateSummary = ({ winRate }) => (
     <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile label="Win %" value={formatPercent(winRate.win.pct)} variant="good" />
-            <StatTile label="Loss %" value={formatPercent(winRate.loss.pct)} variant="critical" />
-            <StatTile label="Split %" value={formatPercent(winRate.split.pct)} variant="neutral" />
-            <StatTile label="Fold %" value={formatPercent(winRate.fold.pct)} variant="warning" />
+            <StatTile
+                label="Win %"
+                value={formatPercent(winRate.win.pct)}
+                variant="good"
+                tooltip={STAT_DESCRIPTIONS['Win %']}
+            />
+            <StatTile
+                label="Loss %"
+                value={formatPercent(winRate.loss.pct)}
+                variant="critical"
+                tooltip={STAT_DESCRIPTIONS['Loss %']}
+            />
+            <StatTile
+                label="Split %"
+                value={formatPercent(winRate.split.pct)}
+                variant="neutral"
+                tooltip={STAT_DESCRIPTIONS['Split %']}
+            />
+            <StatTile
+                label="Fold %"
+                value={formatPercent(winRate.fold.pct)}
+                variant="warning"
+                tooltip={STAT_DESCRIPTIONS['Fold %']}
+            />
         </div>
 
         {winRate.total > 0 && (
