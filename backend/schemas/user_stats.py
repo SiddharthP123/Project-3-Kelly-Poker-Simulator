@@ -40,6 +40,17 @@ class UserStatsResponse(ApiModel):
     vpip_rate: float  # 0.0 when there's no data yet, like the *_rate fields above
     aggression_factor: float | None  # None (not 0/inf) until hero has made a real call
 
+    # Part 14 Phase 4 -- position/sequence-aware preflop stats, computed
+    # from the same per-hand action walk (see
+    # compute_user_stats._hero_preflop_decisions). pfr_rate uses the same
+    # 0.0-until-there's-data convention as vpip_rate; three_bet_rate/
+    # ats_rate use aggression_factor's None-until-an-opportunity
+    # convention, since both are ratios over a subset of hands, not all
+    # of them.
+    pfr_rate: float
+    three_bet_rate: float | None
+    ats_rate: float | None
+
     # Every BankrollLog row across every one of the user's sessions, in
     # chronological order -- unlike the per-session-only chart from Part
     # 10, a session boundary shows up here as a real jump back to that

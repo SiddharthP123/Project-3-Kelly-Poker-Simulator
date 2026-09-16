@@ -1,5 +1,62 @@
 import pytest
 
+from backend.models import GameSession, HandAction, HandHistory, HandPlayer, User
+
+
+def _insert_complete_hand(db_session, game_session, button_seat, hero_folded, actions):
+    """Directly constructs one complete hand's rows (HandHistory,
+    3 HandPlayers, and whatever HandActions the caller wants), bypassing
+    the live game engine and its bot decisions entirely.
+
+    Needed specifically for 3-bet% scenarios: an opponent making a real
+    preflop RAISE before hero's turn turns out to be genuinely rare
+    through the live pipeline, for two structural reasons confirmed by
+    direct experimentation, not a bug in this project's own code --
+    (1) poker/hand_flow.py's default_bot_action sizes a persona's raise
+    as a fraction of the CURRENT pot, which at the blinds-only pot a
+    hand starts with is almost always below the legal minimum raise, so
+    it silently downgrades to a call; (2) even when a bot's persona
+    calls for a raise (e.g. KellyOptimalBot, whose sizing isn't
+    pot-fraction-based), the pot odds of a 2-into-3 blinds-only pot need
+    roughly 40% equity to justify it, and a 3-4-way random hand's
+    average equity is only ~25% -- so most real deals simply don't
+    clear the bar. Retrying live deals for this specific condition would
+    need a very large attempt budget to be reliable; constructing the
+    scenario directly is deterministic and fast instead.
+
+    `actions`: list of (seat_index, street, action, amount) tuples, in
+    the order they happened.
+    """
+    hand = HandHistory(
+        game_session_id=game_session.id, hand_number=1,
+        hero_hole_cards='Ah,Ac', pot_size=0.0, button_seat=button_seat, street='complete',
+    )
+    db_session.add(hand)
+    db_session.flush()
+
+    db_session.add(HandPlayer(
+        hand_history_id=hand.id, seat_index=0, is_hero=True, starting_stack=1000.0,
+        hole_cards='Ah,Ac', folded=hero_folded, is_winner=not hero_folded,
+        net_result=10.0 if not hero_folded else -5.0,
+    ))
+    db_session.add(HandPlayer(
+        hand_history_id=hand.id, seat_index=1, is_hero=False, persona='tight-aggressive',
+        starting_stack=1000.0, hole_cards='Kh,Kc', folded=False, is_winner=False, net_result=-5.0,
+    ))
+    db_session.add(HandPlayer(
+        hand_history_id=hand.id, seat_index=2, is_hero=False, persona='loose-passive',
+        starting_stack=1000.0, hole_cards='Qh,Qc', folded=True, is_winner=False, net_result=-5.0,
+    ))
+
+    for seq, (seat_index, street, action, amount) in enumerate(actions):
+        db_session.add(HandAction(
+            hand_history_id=hand.id, seq=seq, street=street, seat_index=seat_index,
+            action=action, amount=amount, pot_size_after=0.0,
+        ))
+
+    db_session.commit()
+    return hand
+
 
 def _signup_and_get_headers(client, email):
     response = client.post('/api/auth/signup', json={'email': email, 'password': 'correct-horse-battery'})
@@ -68,6 +125,9 @@ def test_stats_are_all_zero_with_no_sessions_played(client, auth_headers):
     assert stats['biggest_loss'] is None
     assert stats['vpip_rate'] == 0.0
     assert stats['aggression_factor'] is None
+    assert stats['pfr_rate'] == 0.0
+    assert stats['three_bet_rate'] is None
+    assert stats['ats_rate'] is None
     assert stats['bankroll_history'] == []
 
 
@@ -80,6 +140,9 @@ def test_stats_count_a_session_with_no_hands_played_yet(client, auth_headers):
     assert stats['cumulative_bankroll_change'] == 0.0
     assert stats['vpip_rate'] == 0.0
     assert stats['aggression_factor'] is None
+    assert stats['pfr_rate'] == 0.0
+    assert stats['three_bet_rate'] is None
+    assert stats['ats_rate'] is None
     # A session's own creation already writes an initial BankrollLog row
     # (bankroll_after == starting_bankroll), independent of any hand ever
     # being played -- see test_create_session_writes_starting_bankroll_log.
@@ -202,6 +265,11 @@ def test_calling_the_only_hand_counts_as_vpip_but_not_aggression(client, auth_he
     assert stats['vpip_rate'] == 1.0
     # At least one real call and zero raises -- a defined, non-None ratio.
     assert stats['aggression_factor'] == 0.0
+    # Hero's first preflop action was a call, not a raise -- not PFR.
+    assert stats['pfr_rate'] == 0.0
+    # Hero (button) faced 0 entries preflop -- an ATS opportunity -- but
+    # called instead of raising, so the opportunity wasn't taken.
+    assert stats['ats_rate'] == 0.0
 
 
 def test_raising_counts_toward_vpip_and_produces_a_positive_aggression_factor(client, auth_headers):
@@ -246,6 +314,68 @@ def test_raising_counts_toward_vpip_and_produces_a_positive_aggression_factor(cl
     assert stats['vpip_rate'] == 1.0  # neither hand was folded preflop
     assert stats['aggression_factor'] is not None
     assert stats['aggression_factor'] > 0
+    # Exactly one of the two hands was a preflop raise -- both hands had
+    # hero as the button facing 0 entries (an ATS opportunity each time),
+    # so both rates land on the same 1-of-2 = 0.5.
+    assert stats['pfr_rate'] == 0.5
+    assert stats['ats_rate'] == 0.5
+
+
+def test_three_bet_rate_reflects_reraising_an_existing_preflop_raise(client, auth_headers, db_session):
+    # See _insert_complete_hand's own docstring for why this scenario is
+    # built directly rather than played out through the live API: an
+    # opponent's real preflop raise before hero's turn is genuinely rare
+    # through the live bot-decision pipeline, confirmed by direct
+    # experimentation, not just bad luck worth retrying past.
+    user = db_session.query(User).filter_by(email='hero@example.com').first()
+    session = GameSession(
+        user_id=user.id, starting_bankroll=1000.0, current_bankroll=1000.0,
+        bot_persona='placeholder', num_opponents=2, small_blind=1.0, big_blind=2.0, status='active',
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    _insert_complete_hand(
+        db_session, session, button_seat=1, hero_folded=False,
+        actions=[
+            (1, 'preflop', 'post_blind', 1.0),
+            (2, 'preflop', 'post_blind', 2.0),
+            (1, 'preflop', 'raise_to', 6.0),  # opponent opens for a raise
+            (0, 'preflop', 'raise_to', 20.0),  # hero re-raises -- a 3-bet
+            (2, 'preflop', 'fold', 0.0),
+            (1, 'preflop', 'match', 14.0),
+        ],
+    )
+
+    stats = _get_stats(client, auth_headers)
+    assert stats['total_hands'] == 1
+    assert stats['three_bet_rate'] == 1.0
+
+
+def test_three_bet_rate_is_none_when_hero_never_faced_an_existing_preflop_raise(client, auth_headers, db_session):
+    user = db_session.query(User).filter_by(email='hero@example.com').first()
+    session = GameSession(
+        user_id=user.id, starting_bankroll=1000.0, current_bankroll=1000.0,
+        bot_persona='placeholder', num_opponents=2, small_blind=1.0, big_blind=2.0, status='active',
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    # Hero's only preflop action just calls the big blind -- nobody
+    # raised before hero, so there was no 3-bet opportunity at all.
+    _insert_complete_hand(
+        db_session, session, button_seat=0, hero_folded=False,
+        actions=[
+            (1, 'preflop', 'post_blind', 1.0),
+            (2, 'preflop', 'post_blind', 2.0),
+            (0, 'preflop', 'match', 2.0),
+            (1, 'preflop', 'fold', 0.0),
+        ],
+    )
+
+    stats = _get_stats(client, auth_headers)
+    assert stats['total_hands'] == 1
+    assert stats['three_bet_rate'] is None
 
 
 def test_bankroll_history_spans_every_session_chronologically(client, auth_headers):
