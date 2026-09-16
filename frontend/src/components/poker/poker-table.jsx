@@ -221,11 +221,11 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
 
             {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
 
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end">
                 <div className="relative flex-1">
                     <div
                         key={hand?.id ?? 'idle'}
-                        className="relative aspect-[16/10] w-full rounded-[40px] border-8 border-amber-900 bg-gradient-to-b from-emerald-800 to-emerald-950 shadow-inner"
+                        className="relative aspect-[16/10] w-full rounded-[40px] border-8 border-amber-900 bg-gradient-to-b from-emerald-800 to-emerald-950 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4),0_0_40px_8px_rgba(16,185,129,0.35)]"
                     >
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div

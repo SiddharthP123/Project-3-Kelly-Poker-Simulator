@@ -42,6 +42,7 @@ solid and tested before any API or UI is built on top of it.
 | 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
 | 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | ✅ Done |
 | 14 | Player Education, Advanced Stats & Table Polish | ✅ Done |
+| 15 | Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes | 🚧 In progress |
 
 ## Setup
 
@@ -1322,3 +1323,41 @@ cd frontend && npm run test -- stat-classifier stat-radial-gauge play-style-rada
 
 Part 14 (all 6 phases) is now complete -- player education pages, a much richer stat set, and a
 charts overhaul with performance-based coloring.
+
+## Part 15: Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes
+
+Driven by hands-on feedback after using the deployed Part 14 app: the education content was
+text-only (no illustrated hand rankings, no visual street-by-street example, no starting-hand
+chart), the stats page's many abbreviations had no in-app explanation, and the poker table itself
+had two layout bugs (a seat rendering partly off the felt, hero panel bottom not aligned with the
+table's bottom). Same pattern as every part before it -- Phase 1 starts immediately; later phases
+each get their own check-in. A separate ask (using the `magic` MCP server for animations) is on
+hold pending a working API key, and proceeds as its own phase once that's resolved.
+
+### Phase 1: table layout fixes -- seat position, bottom alignment, glow border
+
+Frontend only, `frontend/src/components/poker/poker-table.jsx` and
+`frontend/src/lib/seat-positions.js`.
+
+- **Left-side seat clipping the felt** -- `OPPONENT_LAYOUTS[3]` and `OPPONENT_LAYOUTS[4]` (3- and
+  4-opponent table layouts) placed the leftmost opponent seat at `left: '6%'`; combined with the
+  seat's own rendered width (two cards + a name/stack tag) and its `-translate-x-1/2` centering,
+  that put the seat's left edge at or past the table's own left edge at realistic rendered widths.
+  Moved to `left: '10%'` (and the mirrored right-side seat from `94%` to `90%`, for symmetry) so
+  the full seat box stays inside the felt border.
+- **Hero panel bottom vs. table bottom** -- the two-column row wrapping the felt and the right-side
+  hero panel was `lg:items-start`, aligning only their top edges; since the felt's height comes from
+  a fixed `aspect-[16/10]` and the hero panel's height comes from its own stacked content, the two
+  bottoms never lined up. Changed to `lg:items-end`, aligning both columns' bottom edges directly --
+  simpler than stretching the row and pinning content to the bottom of a taller container, and gives
+  the same visual result.
+- **Glow border on the felt** -- the felt's `shadow-inner` (an inset-only shadow) is now a combined
+  custom shadow carrying both the original inset darkening and a soft outward emerald glow:
+  `shadow-[inset_0_2px_8px_rgba(0,0,0,0.4),0_0_40px_8px_rgba(16,185,129,0.35)]`, matching the felt's
+  own green gradient.
+
+Run just this phase's tests:
+
+```bash
+cd frontend && npm run test -- poker-table
+```

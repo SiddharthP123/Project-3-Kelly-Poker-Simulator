@@ -14,15 +14,15 @@ const OPPONENT_LAYOUTS = {
         { top: '22%', left: '82%' },
     ],
     3: [
-        { top: '50%', left: '6%' },
+        { top: '50%', left: '10%' },
         { top: '10%', left: '50%' },
-        { top: '50%', left: '94%' },
+        { top: '50%', left: '90%' },
     ],
     4: [
-        { top: '50%', left: '6%' },
+        { top: '50%', left: '10%' },
         { top: '14%', left: '28%' },
         { top: '14%', left: '72%' },
-        { top: '50%', left: '94%' },
+        { top: '50%', left: '90%' },
     ],
 }
 
