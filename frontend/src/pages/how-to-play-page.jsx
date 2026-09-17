@@ -14,7 +14,7 @@ import { StreetProgression } from '@/components/education/street-progression'
 const HowToPlayPage = () => (
     <div className="flex min-h-svh flex-col">
         <AppHeader />
-        <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 rounded-xl border border-white/10 p-6 pb-16 sm:p-10">
+        <main className="mx-auto mt-8 flex w-full max-w-3xl flex-col gap-10 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
             <div className="flex flex-col gap-2 pt-4">
                 <h1 className="text-3xl font-bold">
                     Sid's Beginner's Guide to Texas Hold'em Poker:

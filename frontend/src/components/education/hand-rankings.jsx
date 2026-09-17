@@ -1,5 +1,5 @@
 import { PlayingCard } from '@/components/poker/playing-card'
-import { BorderBeam } from '@/components/ui/border-beam'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 
 /**
  * The 10 standard Texas Hold'em hand categories, worst to best, each with
@@ -78,7 +78,7 @@ const HAND_RANKINGS = [
 const HandRankings = () => (
     <div className="flex flex-col gap-3">
         {HAND_RANKINGS.map((hand, index) => (
-            <BorderBeam key={hand.name} size="md" colorVariant="colorful" theme="dark">
+            <BorderBeam key={hand.name} {...EDUCATION_BORDER_BEAM_PROPS}>
                 <div className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div>
                         <p className="font-semibold">

@@ -1,4 +1,5 @@
 import { PlayingCard } from '@/components/poker/playing-card'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 
 // One fixed worked example, told across all 4 streets -- hero's hole
 // cards never change, the board only ever grows, matching how a real hand
@@ -37,7 +38,7 @@ const UndealtSlot = () => (
  * first-time reader can see exactly what "more of the board" means street
  * by street, not just read about it.
  *
- * Each row highlights (white glow, same style as hand-rankings.jsx) only
+ * Each row highlights (same amber glow as hand-rankings.jsx) only
  * the card(s) that street actually deals -- hero's 2 hole cards on
  * Preflop, the 3 flop cards on Flop, just the 4th card on Turn, just the
  * 5th on River -- rather than every card dealt so far, so the glow always
@@ -52,38 +53,42 @@ const StreetProgression = () => (
             const newBoardStart = street.boardCount === 3 ? 0 : street.boardCount - 1
 
             return (
-                <div
-                    key={street.name}
-                    className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:gap-6"
-                >
-                    <div className="sm:w-44 sm:shrink-0">
-                        <p className="font-semibold">{street.name}</p>
-                        <p className="text-sm text-muted-foreground">{street.description}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                            <span className="mr-1 text-xs text-muted-foreground">Your hand</span>
-                            {HERO_CARDS.map((card, index) => (
-                                <PlayingCard key={index} card={card} size="sm" highlighted={street.boardCount === 0} />
-                            ))}
+                <BorderBeam key={street.name} {...EDUCATION_BORDER_BEAM_PROPS}>
+                    <div className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:gap-6">
+                        <div className="sm:w-44 sm:shrink-0">
+                            <p className="font-semibold">{street.name}</p>
+                            <p className="text-sm text-muted-foreground">{street.description}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="mr-1 text-xs text-muted-foreground">Board</span>
-                            {BOARD_CARDS.map((card, index) =>
-                                index < street.boardCount ? (
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-1.5">
+                                <span className="mr-1 text-xs text-muted-foreground">Your hand</span>
+                                {HERO_CARDS.map((card, index) => (
                                     <PlayingCard
                                         key={index}
                                         card={card}
                                         size="sm"
-                                        highlighted={index >= newBoardStart}
+                                        highlighted={street.boardCount === 0}
                                     />
-                                ) : (
-                                    <UndealtSlot key={index} />
-                                ),
-                            )}
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="mr-1 text-xs text-muted-foreground">Board</span>
+                                {BOARD_CARDS.map((card, index) =>
+                                    index < street.boardCount ? (
+                                        <PlayingCard
+                                            key={index}
+                                            card={card}
+                                            size="sm"
+                                            highlighted={index >= newBoardStart}
+                                        />
+                                    ) : (
+                                        <UndealtSlot key={index} />
+                                    ),
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                </BorderBeam>
             )
         })}
     </div>
