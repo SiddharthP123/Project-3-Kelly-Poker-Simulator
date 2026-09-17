@@ -24,12 +24,15 @@ const cellFor = (rowRank, colRank) => {
 
 /**
  * The classic 13x13 starting-hand grid, color-coded worst (red) to best
- * (green) via strengthColor -- an `overflow-x-auto` wrapper since 13
- * columns of labeled cells don't fit a mobile-width viewport.
+ * (green) via strengthColor. Fills the full width of its container (an
+ * `aspect-square` wrapper, not a fixed pixel size) so its left/right edges
+ * line up with the surrounding page text instead of sitting narrower and
+ * centered -- 13 equal columns/rows over a square box makes every cell
+ * square too, without pinning any of them to a fixed size.
  */
 const StartingHandMatrix = () => (
-    <div className="overflow-x-auto">
-        <div className="grid w-max grid-cols-[repeat(13,minmax(0,1fr))] gap-0.5">
+    <div className="aspect-square w-full">
+        <div className="grid h-full w-full grid-cols-[repeat(13,minmax(0,1fr))] grid-rows-[repeat(13,minmax(0,1fr))] gap-0.5">
             {DISPLAY_RANKS.map((rowRank) =>
                 DISPLAY_RANKS.map((colRank) => {
                     const label = cellFor(rowRank, colRank)
@@ -38,7 +41,7 @@ const StartingHandMatrix = () => (
                         <div
                             key={label}
                             title={label}
-                            className="flex h-9 w-9 items-center justify-center rounded text-[0.65rem] font-semibold text-white sm:h-10 sm:w-10 sm:text-xs"
+                            className="flex items-center justify-center rounded text-[0.55rem] font-semibold text-white sm:text-sm"
                             style={{ backgroundColor: strengthColor(score) }}
                         >
                             {label}

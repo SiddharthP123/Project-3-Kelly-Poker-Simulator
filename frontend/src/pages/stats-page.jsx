@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 
 import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-chart'
@@ -10,6 +11,18 @@ import { useUserStats } from '@/hooks/use-user-stats'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { formatCurrency } from '@/lib/format'
 import { STAT_DESCRIPTIONS } from '@/lib/stat-descriptions'
+
+// Mirrors dashboard-page.jsx's stagger pattern (itself adapted from the
+// 21st.dev "Marketing Dashboard" bookmark) so both stat-heavy pages feel
+// like the same system rather than two different animation styles.
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
+}
+const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+}
 
 /**
  * Account-wide statistics, aggregated across every session the user has
@@ -43,7 +56,7 @@ const StatsPage = () => {
 
     if (errorMessage) {
         return (
-            <div className="dark flex min-h-svh flex-col bg-background text-foreground">
+            <div className="flex min-h-svh flex-col">
                 <AppHeader />
                 <p className="p-4 text-center text-sm text-destructive">{errorMessage}</p>
             </div>
@@ -52,7 +65,7 @@ const StatsPage = () => {
 
     if (!stats) {
         return (
-            <div className="dark flex min-h-svh flex-col bg-background text-foreground">
+            <div className="flex min-h-svh flex-col">
                 <AppHeader />
                 <p className="p-4 text-center text-muted-foreground">Loading...</p>
             </div>
@@ -68,7 +81,7 @@ const StatsPage = () => {
     }
 
     return (
-        <div className="dark flex min-h-svh flex-col bg-background text-foreground">
+        <div className="flex min-h-svh flex-col">
             <AppHeader />
             <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4">
                 <h1 className="text-xl font-semibold">Your stats</h1>
@@ -78,33 +91,41 @@ const StatsPage = () => {
                         No sessions played yet -- start one from the lobby to see your stats here.
                     </p>
                 ) : (
-                    <>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <motion.div
+                        className="flex flex-col gap-8"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                             <StatTile
                                 label="Sessions played"
-                                value={stats.total_sessions}
+                                numericValue={stats.total_sessions}
+                                formatValue={(n) => `${Math.round(n)}`}
                                 tooltip={STAT_DESCRIPTIONS['Sessions played']}
                             />
                             <StatTile
                                 label="Sessions won"
-                                value={stats.sessions_won}
+                                numericValue={stats.sessions_won}
+                                formatValue={(n) => `${Math.round(n)}`}
                                 tooltip={STAT_DESCRIPTIONS['Sessions won']}
                             />
                             <StatTile
                                 label="Hands played"
-                                value={stats.total_hands}
+                                numericValue={stats.total_hands}
+                                formatValue={(n) => `${Math.round(n)}`}
                                 tooltip={STAT_DESCRIPTIONS['Hands played']}
                             />
                             <StatTile
                                 label="Hands won"
-                                value={stats.hands_won}
+                                numericValue={stats.hands_won}
+                                formatValue={(n) => `${Math.round(n)}`}
                                 tooltip={STAT_DESCRIPTIONS['Hands won']}
                             />
                             <StatTile
                                 label="All-time winnings"
-                                value={`${stats.cumulative_bankroll_change >= 0 ? '+' : ''}${formatCurrency(
-                                    stats.cumulative_bankroll_change,
-                                )}`}
+                                numericValue={stats.cumulative_bankroll_change}
+                                formatValue={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(n)}`}
                                 variant={
                                     stats.cumulative_bankroll_change > 0
                                         ? 'good'
@@ -126,14 +147,14 @@ const StatsPage = () => {
                                 variant={stats.biggest_loss != null ? 'critical' : 'neutral'}
                                 tooltip={STAT_DESCRIPTIONS['Biggest loss']}
                             />
-                        </div>
+                        </motion.div>
 
-                        <section className="flex flex-col gap-3">
+                        <motion.section variants={itemVariants} className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">Win rate</h2>
                             <WinRateSummary winRate={winRate} />
-                        </section>
+                        </motion.section>
 
-                        <section className="flex flex-col gap-4">
+                        <motion.section variants={itemVariants} className="flex flex-col gap-4">
                             <h2 className="text-lg font-semibold">Play style</h2>
                             <p className="text-sm text-muted-foreground">
                                 Green means the stat sits in a generally healthy range; red flags something worth
@@ -189,9 +210,9 @@ const StatsPage = () => {
                                 />
                             </div>
                             <PlayStyleRadarChart stats={stats} />
-                        </section>
+                        </motion.section>
 
-                        <section className="flex flex-col gap-3">
+                        <motion.section variants={itemVariants} className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">Fold / aggression frequency by street</h2>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 {['preflop', 'flop', 'turn', 'river'].map((street) => (
@@ -212,17 +233,17 @@ const StatsPage = () => {
                                     </div>
                                 ))}
                             </div>
-                        </section>
+                        </motion.section>
 
-                        <section className="flex flex-col gap-3">
+                        <motion.section variants={itemVariants} className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">Bankroll over time</h2>
                             <p className="text-sm text-muted-foreground">
                                 Every session, chronologically -- a jump back down is a new session starting at its
                                 own bankroll, not a loss.
                             </p>
                             <BankrollGrowthChart series={computeBankrollSeries(stats.bankroll_history)} />
-                        </section>
-                    </>
+                        </motion.section>
+                    </motion.div>
                 )}
             </main>
         </div>

@@ -42,7 +42,13 @@ const StatRadialGauge = ({ label, value, statKey, tooltip }) => {
                         neutralizes recharts' own hardcoded light-gray
                         background-sector default elsewhere; without this the
                         backdrop arc stays light-gray even on a dark page. */}
-                    <RadialBar dataKey="value" cornerRadius={6} background={{ fill: 'var(--muted)' }} />
+                    <RadialBar
+                        dataKey="value"
+                        cornerRadius={6}
+                        background={{ fill: 'var(--muted)' }}
+                        animationDuration={1200}
+                        animationEasing="ease-out"
+                    />
                 </RadialBarChart>
                 <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums">
                     {value == null ? '—' : `${percent.toFixed(1)}%`}

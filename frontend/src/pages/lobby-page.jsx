@@ -57,7 +57,7 @@ const LobbyPage = () => {
     }
 
     return (
-        <div className="dark flex min-h-svh flex-col bg-background text-foreground">
+        <div className="flex min-h-svh flex-col">
             <AppHeader />
             <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-4">
                 {!isCheckingForActiveSession && activeSession && (

@@ -33,7 +33,7 @@ const SignupPage = () => {
     }
 
     return (
-        <div className="dark flex min-h-svh items-center justify-center bg-background p-4 text-foreground">
+        <div className="flex min-h-svh items-center justify-center p-4">
             <Card className="w-full max-w-sm">
                 <CardHeader>
                     <CardTitle>Create an account</CardTitle>
