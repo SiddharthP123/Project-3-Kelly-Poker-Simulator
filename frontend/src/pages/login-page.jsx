@@ -36,7 +36,7 @@ const LoginPage = () => {
             <Card className="w-full max-w-sm">
                 <CardHeader>
                     <CardTitle>Log in</CardTitle>
-                    <CardDescription>Welcome back to the Kelly Poker Simulator.</CardDescription>
+                    <CardDescription>Welcome back to Sid's Kelly Criterion Poker Simulator.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="flex flex-col gap-4">

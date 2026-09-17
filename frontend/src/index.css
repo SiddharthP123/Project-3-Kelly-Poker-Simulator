@@ -128,3 +128,14 @@
     @apply font-sans;
     }
 }
+
+/* Flowing rainbow text gradient (RainbowText, ui/rainbow-text.jsx) --
+   background-clip:text needs the background to actually move to read as
+   "flowing" rather than a static gradient fill, which a Tailwind utility
+   class alone can't express, hence this one keyframe living here instead
+   of inline in the component. */
+@keyframes rainbow-text-flow {
+    to {
+        background-position: 200% center;
+    }
+}

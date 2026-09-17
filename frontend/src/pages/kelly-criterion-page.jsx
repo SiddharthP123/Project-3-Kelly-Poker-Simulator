@@ -228,7 +228,7 @@ const KellyCriterionPage = () => (
             </section>
 
             <section className="flex flex-col gap-3">
-                <h2 className="text-xl font-semibold">At the Poker Table</h2>
+                <h2 className="text-xl font-semibold">At the Poker Table:</h2>
                 <p>
                     On the board, there's no bookmaker quoting odds, but the pot itself implies
                     them. Calling a bet risks <code>bet_to_call</code> to potentially win the whole
@@ -276,25 +276,25 @@ const KellyCriterionPage = () => (
             <section className="flex flex-col gap-3">
                 <h2 className="text-xl font-semibold">Glossary:</h2>
                 <dl className="flex flex-col gap-3">
-                    <GlossaryEntry term="Edge">
+                    <GlossaryEntry term="Edge:">
                         Having a real advantage in a bet. When your true win probability is better
                         than what the odds being offered would require to break even.
                     </GlossaryEntry>
-                    <GlossaryEntry term="Full Kelly">
+                    <GlossaryEntry term="Full Kelly:">
                         Staking exactly the raw Kelly fraction, f*, with no adjustment.
                     </GlossaryEntry>
-                    <GlossaryEntry term="Fractional Kelly (e.g. half Kelly)">
+                    <GlossaryEntry term="Fractional Kelly (e.g. half Kelly):">
                         Staking a fraction of f* itself (e.g. half of it), gives up some long-run
                         growth in exchange for meaningfully lower variance and smaller drawdowns,
                         since growth near the Kelly peak is flat but variance keeps rising with bet
                         size. This simulator's Kelly multiplier setting controls exactly this.
                     </GlossaryEntry>
-                    <GlossaryEntry term="Log-growth">
+                    <GlossaryEntry term="Log-Growth:">
                         The right quantity to maximize when a bet repeats many times, since a
                         bankroll compounds multiplicatively (not the same as maximizing plain
                         expected value, which would push you to bet everything every time).
                     </GlossaryEntry>
-                    <GlossaryEntry term="Risk of ruin">
+                    <GlossaryEntry term="Risk Of Ruin:">
                         The probability of losing your entire bankroll. Betting beyond the Kelly
                         fraction increases this at the same time it lowers your long-run growth
                         rate.

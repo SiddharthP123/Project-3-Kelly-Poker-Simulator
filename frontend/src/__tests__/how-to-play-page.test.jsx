@@ -60,13 +60,13 @@ describe('HowToPlayPage', () => {
             'High Card:',
             'Pair:',
             'Two Pair:',
-            'Three of a Kind',
+            'Three of a Kind:',
             'Straight:',
             'Flush:',
             'Full House:',
-            'Four of a Kind',
+            'Four of a Kind:',
             'Straight Flush:',
-            'Royal Flush',
+            'Royal Flush:',
         ].forEach((handName) => {
             expect(screen.getByText(handName)).toBeInTheDocument()
         })
@@ -81,7 +81,7 @@ describe('HowToPlayPage', () => {
             </MemoryRouter>,
         )
 
-        ;['Preflop:', 'Flop:', 'Turn:', 'River'].forEach((streetName) => {
+        ;['Preflop:', 'Flop:', 'Turn:', 'River:'].forEach((streetName) => {
             expect(screen.getByText(streetName)).toBeInTheDocument()
         })
     })
