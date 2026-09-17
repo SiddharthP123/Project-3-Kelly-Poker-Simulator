@@ -32,7 +32,7 @@ const HAND_RANKINGS = [
         description: 'Two separate pairs.',
     },
     {
-        name: 'Three of a Kind',
+        name: 'Three of a Kind:',
         cards: ['6h', '6d', '6s', '9c', 'Kd'],
         highlight: [0, 1, 2],
         description: 'Three cards of the same rank.',
@@ -56,7 +56,7 @@ const HAND_RANKINGS = [
         description: 'Three of a kind plus a pair.',
     },
     {
-        name: 'Four of a Kind',
+        name: 'Four of a Kind:',
         cards: ['9h', '9d', '9s', '9c', '2d'],
         highlight: [0, 1, 2, 3],
         description: 'Four cards of the same rank.',
@@ -68,10 +68,10 @@ const HAND_RANKINGS = [
         description: 'Five consecutive cards, all the same suit.',
     },
     {
-        name: 'Royal Flush',
+        name: 'Royal Flush:',
         cards: ['Th', 'Jh', 'Qh', 'Kh', 'Ah'],
         highlight: [0, 1, 2, 3, 4],
-        description: 'The best possible straight flush -- Ten through Ace, one suit.',
+        description: 'The best possible straight flush, Ten through Ace, one suit.',
     },
 ]
 

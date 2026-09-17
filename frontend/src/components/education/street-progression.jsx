@@ -19,7 +19,7 @@ const STREETS = [
         description: 'The first 3 community cards are revealed at once.',
     },
     { name: 'Turn:', boardCount: 4, description: 'A 4th community card is revealed.' },
-    { name: 'River', boardCount: 5, description: 'The 5th and final community card is revealed.' },
+    { name: 'River:', boardCount: 5, description: 'The 5th and final community card is revealed.' },
 ]
 
 /**
@@ -61,7 +61,9 @@ const StreetProgression = () => (
                         </div>
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="flex items-center gap-1.5">
-                                <span className="mr-1 text-xs text-muted-foreground">Your hand</span>
+                                <span className="mr-1 text-xs text-muted-foreground">
+                                    Your hand
+                                </span>
                                 {HERO_CARDS.map((card, index) => (
                                     <PlayingCard
                                         key={index}

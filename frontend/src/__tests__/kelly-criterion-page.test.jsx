@@ -40,6 +40,6 @@ describe('KellyCriterionPage', () => {
         expect(screen.getByText('Kelly-Optimal:')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: /beyond poker/i })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: /glossary/i })).toBeInTheDocument()
-        expect(screen.getByText('Risk of ruin')).toBeInTheDocument()
+        expect(screen.getByText('Risk Of Ruin:')).toBeInTheDocument()
     })
 })
