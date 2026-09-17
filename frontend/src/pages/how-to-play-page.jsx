@@ -150,9 +150,9 @@ const HowToPlayPage = () => (
                     decision). Compare the two: if your equity is above the pot odds you're being
                     offered, say 35% equity against 25% pot odds -- calling is profitable in the
                     long run, even though you'll still lose plenty of individual hands. If your
-                    equity is below the pot odds -- say 15% equity against that same 25% -- folding
-                    is the better play, since you'd be paying more than your actual chance of
-                    winning justifies.
+                    equity is below the pot odds, say 15% equity against that same 25%, folding is
+                    the better play, since you'd be paying more than your actual chance of winning
+                    justifies.
                 </p>
             </section>
 
