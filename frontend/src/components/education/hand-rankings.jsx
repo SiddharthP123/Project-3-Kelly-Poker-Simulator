@@ -15,8 +15,8 @@ import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-
 const HAND_RANKINGS = [
     {
         name: 'High Card:',
-        cards: ['2h', '5c', '9d', 'Jc', 'Ah'],
-        highlight: [4],
+        cards: ['Ah', '5c', '9d', 'Jc', '2h'],
+        highlight: [0],
         description: 'No pair or better, so the highest single card plays.',
     },
     {

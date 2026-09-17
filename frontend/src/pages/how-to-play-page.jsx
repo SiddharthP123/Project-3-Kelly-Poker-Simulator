@@ -15,9 +15,9 @@ const HowToPlayPage = () => (
     <div className="flex min-h-svh flex-col">
         <AppHeader />
         <main className="mx-auto mt-8 flex w-full max-w-3xl flex-col gap-10 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
-            <div className="flex flex-col gap-2 pt-4">
+            <div className="flex flex-col gap-4 pt-4">
                 <h1 className="text-3xl font-bold">
-                    Sid's Beginner's Guide to Texas Hold'em Poker:
+                    Sid's Beginner's Guide To Texas Hold'em Poker:
                 </h1>
                 <p className="text-muted-foreground">
                     Hey guys! My name's Siddharth and I'm a first-year engineering student at
@@ -45,7 +45,7 @@ const HowToPlayPage = () => (
             <section className="flex flex-col gap-3">
                 <h2 className="text-xl font-semibold">Hand Rankings:</h2>
                 <p>
-                    When a hand reaches showdown, a 5-card hand can fall into 10 categories, listed
+                    Upon reaching the showdown, a 5-card hand can fall into 10 categories, listed
                     below from weakest to strongest. A higher-ranked category always beats a
                     lower-ranked one, regardless of the actual card values involved.
                 </p>
@@ -58,7 +58,7 @@ const HowToPlayPage = () => (
                     Betting happens in four stages, called streets, as more of the board is
                     revealed. Typically, a card is <strong>burned</strong> (discarded) before each
                     street, done in case the deck has been marked or tampered with. In this
-                    simulator,cards are not burned to keep the interface simple.
+                    simulator, cards are not burned to keep the interface simple.
                 </p>
                 <StreetProgression />
                 <p>
@@ -108,24 +108,24 @@ const HowToPlayPage = () => (
             <section className="flex flex-col gap-3">
                 <h2 className="text-xl font-semibold">Common Tactics:</h2>
                 <p>
-                    Knowing the four options is one thing -- knowing when to reach for each one is
+                    Knowing the four options is one thing, but knowing when to reach for each one is
                     the actual game. Here's how beginners generally think about each of them:
                 </p>
                 <ul className="flex flex-col gap-2 pl-5">
                     <li className="list-disc">
                         <strong>Checking</strong> is your default with a weak or marginal hand when
-                        nobody's bet yet -- it costs nothing and lets you see the next card for
-                        free instead of putting money in with a hand that isn't ahead.
+                        nobody's bet yet. It costs nothing and lets you see the next card for free
+                        instead of putting money in with a hand that isn't ahead.
                     </li>
                     <li className="list-disc">
                         <strong>Calling</strong> makes sense when your hand has a reasonable chance
-                        of winning, but not a strong enough one to raise -- you're paying to see
+                        of winning, but not a strong enough one to raise. Here, you're paying to see
                         more cards or reach showdown without committing extra chips.
                     </li>
                     <li className="list-disc">
                         <strong>Folding</strong> is correct whenever the math below says you're not
-                        getting paid enough to call -- giving up a weak hand cheaply beats losing
-                        more chips chasing a card that's unlikely to arrive.
+                        getting paid enough to call. Giving up a weak hand cheaply beats losing more
+                        chips chasing a card that's unlikely to arrive.
                     </li>
                     <li className="list-disc">
                         <strong>Raising</strong> has two very different jobs: raising for{' '}
@@ -141,14 +141,14 @@ const HowToPlayPage = () => (
                 <p>
                     Pot odds are the price you're being offered to call, expressed as a percentage:
                     the amount you'd have to call, divided by the total pot after you call. Say the
-                    pot is $100 and an opponent bets $50 -- the pot is now $150, and calling costs
-                    $50 to win a total of $200. That's pot odds of 50 / 200 = <strong>25%</strong>.
+                    pot is $100 and an opponent bets $50, the pot is now $150, and calling costs $50
+                    to win a total of $200. That's pot odds of 50 / 200 = <strong>25%</strong>.
                 </p>
                 <p>
                     Equity is simply your estimated chance of winning the hand right now, given the
                     cards you've seen (this simulator shows it to you live whenever you face a
                     decision). Compare the two: if your equity is above the pot odds you're being
-                    offered -- say 35% equity against 25% pot odds -- calling is profitable in the
+                    offered, say 35% equity against 25% pot odds -- calling is profitable in the
                     long run, even though you'll still lose plenty of individual hands. If your
                     equity is below the pot odds -- say 15% equity against that same 25% -- folding
                     is the better play, since you'd be paying more than your actual chance of
@@ -175,13 +175,13 @@ const HowToPlayPage = () => (
                     <GlossaryEntry term="Blinds (Small Blind / Big Blind):">
                         Forced bets posted by the two players to the left of the dealer button
                         before any cards are dealt, to make sure there's always something in the pot
-                        worth playing for.
+                        worth playing for. The small blind is half the size of the big blind.
                     </GlossaryEntry>
                     <GlossaryEntry term="Button:">
                         The dealer position for the hand, marked with a "D" in this simulator, it
-                        rotates one seat to the left every hand.
+                        rotates one seat to the left (clockwise) every hand.
                     </GlossaryEntry>
-                    <GlossaryEntry term="Pot">
+                    <GlossaryEntry term="Pot:">
                         The total amount everyone has bet this hand, awarded to whoever wins it.
                     </GlossaryEntry>
                     <GlossaryEntry term="Pot Odds:">
@@ -190,16 +190,17 @@ const HowToPlayPage = () => (
                     </GlossaryEntry>
                     <GlossaryEntry term="Equity:">
                         Your estimated probability of winning the hand right now, given the cards
-                        seen so far, shown live in this simulator whenever you face a decision.
+                        seen so far. This is shown live in the simulator whenever you face a
+                        decision.
                     </GlossaryEntry>
                     <GlossaryEntry term="All-In:">
                         Betting your entire remaining stack. You can't be forced to bet more than
                         you have.
                     </GlossaryEntry>
                     <GlossaryEntry term="Side Pot:">
-                        A separate pot that forms when an all-in player can't match a later bet,
-                        this is contested only by the players who put in enough to be eligible for
-                        it.
+                        A separate pot that forms when player who goes all-in can't match a later
+                        bet. This is contested only by those players who put in enough to be
+                        eligible for it.
                     </GlossaryEntry>
                 </dl>
             </section>

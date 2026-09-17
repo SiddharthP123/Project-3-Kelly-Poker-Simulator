@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 const CELL_SIZE = 55
-const INFLUENCE_RADIUS = 260
+const INFLUENCE_RADIUS = 130
 const MAX_WARP = 24
 const DOT_SPACING = 28
 const LERP_SPEED = 0.08

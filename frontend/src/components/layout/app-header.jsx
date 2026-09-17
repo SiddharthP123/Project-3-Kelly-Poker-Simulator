@@ -13,7 +13,7 @@ const AppHeader = () => {
             </Link>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <Link to="/how-to-play" className="hover:text-foreground">
-                    How to Play
+                    Beginner's Guide
                 </Link>
                 <Link to="/kelly-criterion" className="hover:text-foreground">
                     Kelly Criterion
