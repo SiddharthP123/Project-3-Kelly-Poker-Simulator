@@ -1,5 +1,21 @@
-import { AppHeader } from '@/components/layout/app-header'
+import {
+    Bar,
+    CartesianGrid,
+    Cell,
+    ComposedChart,
+    Line,
+    ReferenceArea,
+    ReferenceDot,
+    ReferenceLine,
+    XAxis,
+    YAxis,
+} from 'recharts'
+
 import { GlossaryEntry } from '@/components/education/glossary-entry'
+import { AppHeader } from '@/components/layout/app-header'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
+import { CLASSIFICATION_COLORS } from '@/lib/stat-classifier'
 
 /**
  * Expected per-bet log-growth rate at p=0.6, b=1 (even money) -- the same
@@ -20,38 +36,97 @@ const GROWTH_BY_FRACTION = [
     { fraction: 0.5, growth: -0.034 },
     { fraction: 0.6, growth: -0.0845 },
 ]
-const MAX_ABS_GROWTH = Math.max(...GROWTH_BY_FRACTION.map((row) => Math.abs(row.growth)))
 
+// Recharts wants plain percentage numbers (20, not 0.2) to format/plot
+// cleanly -- derived here once rather than re-scaled inline at every
+// axis/tooltip/cell callback.
+const GROWTH_CHART_DATA = GROWTH_BY_FRACTION.map((row) => ({
+    fractionPct: row.fraction * 100,
+    growthPct: row.growth * 100,
+}))
+const MAX_GROWTH_PCT = Math.max(...GROWTH_CHART_DATA.map((row) => row.growthPct))
+const MIN_GROWTH_PCT = Math.min(...GROWTH_CHART_DATA.map((row) => row.growthPct))
+const KELLY_OPTIMAL_POINT = GROWTH_CHART_DATA[GROWTH_BY_FRACTION.findIndex((row) => row.isKellyOptimal)]
+
+const growthChartConfig = {
+    growthPct: { label: 'Expected growth per bet' },
+}
+
+/**
+ * A real coordinate chart (recharts ComposedChart), not just proportional
+ * bar widths -- a bold ReferenceLine at growth=0 is the chart's actual
+ * origin, with a green-tinted region above it (bankroll still compounds)
+ * and a red-tinted region below it (bankroll shrinks), each bar colored
+ * to match. The amber Line traces the same values as the bar tops, so
+ * the "rises then falls" shape Kelly's formula produces reads as one
+ * continuous curve, not just a sequence of disconnected bars.
+ */
 const GrowthByFractionDiagram = () => (
-    <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-        <p className="text-sm font-medium">
-            Expected bankroll growth per bet, betting a 60%-to-win / even-money edge repeatedly
-        </p>
-        <div className="flex flex-col gap-1.5">
-            {GROWTH_BY_FRACTION.map((row) => (
-                <div key={row.fraction} className="flex items-center gap-2 text-sm">
-                    <span className={`w-12 shrink-0 tabular-nums ${row.isKellyOptimal ? 'font-bold' : ''}`}>
-                        {Math.round(row.fraction * 100)}%
-                    </span>
-                    <div className="flex h-4 flex-1 items-center">
-                        <div
-                            className={`h-full rounded-sm ${row.growth >= 0 ? 'bg-green-600' : 'bg-red-600'}`}
-                            style={{ width: `${(Math.abs(row.growth) / MAX_ABS_GROWTH) * 100}%` }}
-                        />
-                    </div>
-                    {row.isKellyOptimal && (
-                        <span className="shrink-0 text-xs font-medium text-green-700 dark:text-green-500">
-                            Kelly-optimal
-                        </span>
-                    )}
-                </div>
-            ))}
+    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
+            <p className="text-sm font-medium">
+                Expected bankroll growth per bet, betting a 60%-to-win / even-money edge repeatedly
+            </p>
+            <ChartContainer config={growthChartConfig} className="h-64 w-full">
+                <ComposedChart data={GROWTH_CHART_DATA} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <ReferenceArea y1={0} y2={MAX_GROWTH_PCT} fill={CLASSIFICATION_COLORS.good} fillOpacity={0.08} />
+                    <ReferenceArea y1={MIN_GROWTH_PCT} y2={0} fill={CLASSIFICATION_COLORS.critical} fillOpacity={0.08} />
+                    <XAxis
+                        dataKey="fractionPct"
+                        tickFormatter={(value) => `${value}%`}
+                        tickLine={false}
+                        axisLine={{ stroke: 'var(--border)' }}
+                    />
+                    <YAxis
+                        tickFormatter={(value) => `${value.toFixed(1)}%`}
+                        tickLine={false}
+                        axisLine={{ stroke: 'var(--border)' }}
+                        width={56}
+                    />
+                    <ReferenceLine y={0} stroke="var(--foreground)" strokeWidth={2} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="growthPct" radius={3} maxBarSize={36}>
+                        {GROWTH_CHART_DATA.map((row) => (
+                            <Cell
+                                key={row.fractionPct}
+                                fill={row.growthPct >= 0 ? CLASSIFICATION_COLORS.good : CLASSIFICATION_COLORS.critical}
+                            />
+                        ))}
+                    </Bar>
+                    <Line
+                        type="monotone"
+                        dataKey="growthPct"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
+                        activeDot={{ r: 4 }}
+                    />
+                    <ReferenceDot
+                        x={KELLY_OPTIMAL_POINT.fractionPct}
+                        y={KELLY_OPTIMAL_POINT.growthPct}
+                        r={5}
+                        fill="#f59e0b"
+                        stroke="var(--background)"
+                        strokeWidth={2}
+                        label={{
+                            value: 'Kelly-optimal',
+                            position: 'top',
+                            fill: CLASSIFICATION_COLORS.good,
+                            fontSize: 11,
+                            fontWeight: 600,
+                        }}
+                    />
+                </ComposedChart>
+            </ChartContainer>
+            <p className="text-xs text-muted-foreground">
+                Growth rises smoothly up to the Kelly fraction (20% here), then falls -- and eventually
+                turns negative -- the further past it you bet, even though the bet itself hasn't changed.
+                The zero line is the break-even point: green bars above it still grow your bankroll, red
+                bars below it shrink it.
+            </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-            Growth rises smoothly up to the Kelly fraction (20% here), then falls -- and eventually
-            turns negative -- the further past it you bet, even though the bet itself hasn't changed.
-        </p>
-    </div>
+    </BorderBeam>
 )
 
 /**
@@ -63,7 +138,7 @@ const GrowthByFractionDiagram = () => (
 const KellyCriterionPage = () => (
     <div className="flex min-h-svh flex-col">
         <AppHeader />
-        <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 p-4 pb-16">
+        <main className="mx-auto mt-8 flex w-full max-w-3xl flex-col gap-10 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
             <div className="flex flex-col gap-2 pt-4">
                 <h1 className="text-3xl font-bold">The Kelly Criterion</h1>
                 <p className="text-muted-foreground">
@@ -74,7 +149,11 @@ const KellyCriterionPage = () => (
 
             <section className="flex flex-col gap-3">
                 <h2 className="text-xl font-semibold">The formula</h2>
-                <p className="rounded-lg bg-muted p-4 text-center text-lg font-mono">f* = (bp − q) / b</p>
+                <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                    <p className="rounded-lg border border-border p-4 text-center text-lg font-mono">
+                        f* = (bp − q) / b
+                    </p>
+                </BorderBeam>
                 <ul className="flex flex-col gap-2 pl-5">
                     <li className="list-disc">
                         <strong>f*</strong> -- the fraction of your bankroll to stake.

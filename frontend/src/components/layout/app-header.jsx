@@ -16,7 +16,7 @@ const AppHeader = () => {
                     Beginner's Guide
                 </Link>
                 <Link to="/kelly-criterion" className="hover:text-foreground">
-                    Kelly Criterion
+                    The Kelly Criterion
                 </Link>
                 {user && (
                     <>
