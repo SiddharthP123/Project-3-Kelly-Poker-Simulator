@@ -7,7 +7,7 @@ const AppHeader = () => {
     const { user, logout } = useAuth()
 
     return (
-        <header className="flex items-center justify-between border-b px-6 py-4">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-background/70 px-6 py-4 backdrop-blur-md">
             <Link to="/" className="text-xl font-bold">
                 Kelly Poker Simulator
             </Link>

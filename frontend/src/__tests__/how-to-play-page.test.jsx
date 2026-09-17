@@ -24,7 +24,7 @@ describe('HowToPlayPage', () => {
             </MemoryRouter>,
         )
 
-        expect(screen.getByRole('heading', { name: /how to play/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /beginner's guide/i })).toBeInTheDocument()
     })
 
     it('covers hands, streets, actions, showdown, and a glossary', () => {
@@ -37,12 +37,13 @@ describe('HowToPlayPage', () => {
         )
 
         expect(screen.getByRole('heading', { name: /your hand/i })).toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: /the four streets/i })).toBeInTheDocument()
-        expect(screen.getByText(/check, call, fold, raise/i)).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /the four stages/i })).toBeInTheDocument()
+        expect(screen.getByText(/checking, calling, folding, and raising/i)).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: /showdown/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /common tactics/i })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: /glossary/i })).toBeInTheDocument()
-        expect(screen.getByText('Equity')).toBeInTheDocument()
-        expect(screen.getByText('All-in')).toBeInTheDocument()
+        expect(screen.getByText('Equity:')).toBeInTheDocument()
+        expect(screen.getByText('All-In:')).toBeInTheDocument()
     })
 
     it('illustrates all 10 hand rankings, worst to best', () => {
@@ -56,15 +57,15 @@ describe('HowToPlayPage', () => {
 
         expect(screen.getByRole('heading', { name: /hand rankings/i })).toBeInTheDocument()
         ;[
-            'High Card',
-            'Pair',
-            'Two Pair',
+            'High Card:',
+            'Pair:',
+            'Two Pair:',
             'Three of a Kind',
-            'Straight',
-            'Flush',
-            'Full House',
+            'Straight:',
+            'Flush:',
+            'Full House:',
             'Four of a Kind',
-            'Straight Flush',
+            'Straight Flush:',
             'Royal Flush',
         ].forEach((handName) => {
             expect(screen.getByText(handName)).toBeInTheDocument()
@@ -80,7 +81,7 @@ describe('HowToPlayPage', () => {
             </MemoryRouter>,
         )
 
-        ;['Preflop', 'Flop', 'Turn', 'River'].forEach((streetName) => {
+        ;['Preflop:', 'Flop:', 'Turn:', 'River'].forEach((streetName) => {
             expect(screen.getByText(streetName)).toBeInTheDocument()
         })
     })

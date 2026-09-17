@@ -72,9 +72,11 @@ describe('StatsPage', () => {
         renderStatsPage()
 
         await waitFor(() => expect(screen.getByText('Sessions played')).toBeInTheDocument())
-        expect(screen.getByText('2')).toBeInTheDocument() // sessions played
-        expect(screen.getByText('5')).toBeInTheDocument() // hands played
-        expect(screen.getByText('+$150.50')).toBeInTheDocument()
+        // Sessions played/Hands played/All-time winnings count up (AnimatedNumber)
+        // rather than rendering their final text synchronously -- wait for them.
+        await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument()) // sessions played
+        await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument()) // hands played
+        await waitFor(() => expect(screen.getByText('+$150.50')).toBeInTheDocument())
         expect(screen.getByText('$200.00')).toBeInTheDocument() // biggest win
         expect(screen.getByText('-$75.00')).toBeInTheDocument() // biggest loss
         expect(screen.getByText('60.0%')).toBeInTheDocument() // VPIP

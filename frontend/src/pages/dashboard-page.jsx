@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
@@ -11,6 +12,18 @@ import { useHandHistory } from '@/hooks/use-hand-history'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { computeWinRate } from '@/lib/compute-win-rate'
 import { formatCurrency } from '@/lib/format'
+
+// Mirrors the 21st.dev "Marketing Dashboard" bookmark's container/item
+// pattern: sections fade + rise in one after another instead of all
+// popping in at once, so the page reads as composed rather than dumped.
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
+}
+const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+}
 
 const DashboardPage = () => {
     const { sessionId } = useParams()
@@ -66,31 +79,41 @@ const DashboardPage = () => {
     return (
         <div className="flex min-h-svh flex-col">
             <AppHeader />
-            <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4">
-                <div className="grid grid-cols-2 gap-3">
-                    <StatTile label="Current bankroll" value={formatCurrency(session.current_bankroll)} />
+            <motion.main
+                className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+            >
+                <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
+                    <StatTile
+                        label="Current bankroll"
+                        numericValue={session.current_bankroll}
+                        formatValue={formatCurrency}
+                    />
                     <StatTile
                         label="Change from start"
-                        value={`${bankrollDelta >= 0 ? '+' : ''}${formatCurrency(bankrollDelta)}`}
+                        numericValue={bankrollDelta}
+                        formatValue={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(n)}`}
                         variant={bankrollDelta > 0 ? 'good' : bankrollDelta < 0 ? 'critical' : 'neutral'}
                     />
-                </div>
+                </motion.div>
 
-                <section className="flex flex-col gap-3">
+                <motion.section variants={itemVariants} className="flex flex-col gap-3">
                     <h2 className="text-lg font-semibold">Bankroll growth</h2>
                     <BankrollGrowthChart series={bankrollSeries} startingBankroll={session.starting_bankroll} />
-                </section>
+                </motion.section>
 
-                <section className="flex flex-col gap-3">
+                <motion.section variants={itemVariants} className="flex flex-col gap-3">
                     <h2 className="text-lg font-semibold">Win rate</h2>
                     <WinRateSummary winRate={winRate} />
-                </section>
+                </motion.section>
 
-                <section className="flex flex-col gap-3">
+                <motion.section variants={itemVariants} className="flex flex-col gap-3">
                     <h2 className="text-lg font-semibold">Hand history</h2>
                     <HandHistoryTable hands={hands} />
-                </section>
-            </main>
+                </motion.section>
+            </motion.main>
         </div>
     )
 }
