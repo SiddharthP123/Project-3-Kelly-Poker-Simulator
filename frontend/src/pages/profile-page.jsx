@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
 import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
+import { AppFooter } from '@/components/layout/app-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { Button } from '@/components/ui/button'
@@ -372,6 +373,7 @@ const ProfilePage = () => {
                     </section>
                 )}
             </main>
+            <AppFooter />
         </div>
     )
 }

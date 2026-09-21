@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { AppFooter } from '@/components/layout/app-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { SessionSetupForm } from '@/components/session/session-setup-form'
 import { AnimatedText } from '@/components/ui/animated-shiny-text'
@@ -118,6 +119,7 @@ const LobbyPage = () => {
                     </BorderBeam>
                 )}
             </main>
+            <AppFooter />
         </div>
     )
 }

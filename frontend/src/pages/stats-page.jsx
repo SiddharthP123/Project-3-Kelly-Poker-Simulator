@@ -6,6 +6,7 @@ import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-cha
 import { StatCard } from '@/components/dashboard/stat-card'
 import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
+import { AppFooter } from '@/components/layout/app-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { useUserStats } from '@/hooks/use-user-stats'
@@ -310,6 +311,7 @@ const StatsPage = () => {
                     </motion.div>
                 )}
             </main>
+            <AppFooter />
         </div>
     )
 }

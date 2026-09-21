@@ -261,7 +261,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                                 <AnimatePresence mode="popLayout">
                                     <motion.p
                                         key={hand.pot_size}
-                                        className="text-sm font-medium text-white/70"
+                                        className="text-2xl font-bold text-white"
                                         initial={{ opacity: 0, scale: 0.8 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0 }}
@@ -271,23 +271,28 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                                     </motion.p>
                                 </AnimatePresence>
                             )}
-                            <div className="flex gap-3">
-                                {Array.from({ length: BOARD_SLOTS }, (_, index) => index).map((index) =>
-                                    boardCards[index] ? (
-                                        <AnimatedCard
-                                            key={index}
-                                            dealt
-                                            card={boardCards[index]}
-                                            size="lg"
-                                            dealDelay={index * 0.15}
-                                        />
-                                    ) : (
-                                        <div
-                                            key={index}
-                                            className="h-28 w-20 rounded-lg border border-dashed border-white/15"
-                                        />
-                                    ),
-                                )}
+                            {/* Purely decorative -- a red ring around just the
+                                board, offset from (not touching) the felt's
+                                own outer/inset borders. */}
+                            <div className="rounded-xl border-2 border-red-500/70 p-3">
+                                <div className="flex gap-3">
+                                    {Array.from({ length: BOARD_SLOTS }, (_, index) => index).map((index) =>
+                                        boardCards[index] ? (
+                                            <AnimatedCard
+                                                key={index}
+                                                dealt
+                                                card={boardCards[index]}
+                                                size="lg"
+                                                dealDelay={index * 0.15}
+                                            />
+                                        ) : (
+                                            <div
+                                                key={index}
+                                                className="h-28 w-20 rounded-lg border border-dashed border-white/15"
+                                            />
+                                        ),
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -317,7 +322,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
 
                 <div className="flex h-full w-full flex-col lg:w-[440px] lg:shrink-0">
                     <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className="h-full">
-                        <div className="flex h-full w-full flex-col gap-4 rounded-lg border border-white/15 bg-black/30 p-6">
+                        <div className="flex h-full w-full flex-col gap-4 overflow-y-auto rounded-lg border border-white/15 bg-black/30 p-6">
                             {/* flex-1 so this section absorbs whatever height the
                                 rest of the card doesn't use, keeping the card's
                                 own top AND bottom edges aligned with the felt

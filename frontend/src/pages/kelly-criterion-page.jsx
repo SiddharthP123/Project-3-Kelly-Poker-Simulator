@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 
 import { GlossaryEntry } from '@/components/education/glossary-entry'
+import { AppFooter } from '@/components/layout/app-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
@@ -302,6 +303,7 @@ const KellyCriterionPage = () => (
                 </dl>
             </section>
         </main>
+        <AppFooter />
     </div>
 )
 
