@@ -77,6 +77,11 @@ def _hero_preflop_decisions(actions_by_hand, button_seat_by_hand):
 def compute_user_stats(user: User, db: Session) -> dict:
     sessions = db.query(GameSession).filter_by(user_id=user.id).all()
     cumulative_bankroll_change = sum(s.current_bankroll - s.starting_bankroll for s in sessions)
+    # Denominator for the all-time-winnings percentage shown on the Stats
+    # page -- each session can start with its own bankroll (the user can
+    # override the account default per session), so this sums every
+    # session's own starting_bankroll rather than assuming one fixed value.
+    cumulative_starting_bankroll = sum(s.starting_bankroll for s in sessions)
     # Only a decided (ended) session counts as won or not -- an in-progress
     # session's bankroll can still move either way before it's over.
     sessions_won = sum(1 for s in sessions if s.status == 'ended' and s.current_bankroll > s.starting_bankroll)
@@ -96,7 +101,8 @@ def compute_user_stats(user: User, db: Session) -> dict:
 
     if not sessions:
         return {
-            'total_sessions': 0, 'cumulative_bankroll_change': 0.0, 'sessions_won': 0,
+            'total_sessions': 0, 'cumulative_bankroll_change': 0.0,
+            'cumulative_starting_bankroll': 0.0, 'sessions_won': 0,
             'bankroll_history': [], **empty_hand_stats,
         }
 
@@ -128,6 +134,7 @@ def compute_user_stats(user: User, db: Session) -> dict:
         return {
             'total_sessions': len(sessions),
             'cumulative_bankroll_change': cumulative_bankroll_change,
+            'cumulative_starting_bankroll': cumulative_starting_bankroll,
             'sessions_won': sessions_won,
             'bankroll_history': bankroll_history,
             **empty_hand_stats,
@@ -296,6 +303,7 @@ def compute_user_stats(user: User, db: Session) -> dict:
         'win_rate': rate(win_count), 'loss_rate': rate(loss_count),
         'split_rate': rate(split_count), 'fold_rate': rate(fold_count),
         'cumulative_bankroll_change': cumulative_bankroll_change,
+        'cumulative_starting_bankroll': cumulative_starting_bankroll,
         'biggest_win': max(wins) if wins else None,
         'biggest_loss': min(losses) if losses else None,
         'vpip_rate': vpip_rate,

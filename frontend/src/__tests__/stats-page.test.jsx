@@ -25,7 +25,7 @@ const emptyStats = {
     total_sessions: 0, total_hands: 0,
     win_count: 0, loss_count: 0, split_count: 0, fold_count: 0,
     win_rate: 0, loss_rate: 0, split_rate: 0, fold_rate: 0,
-    cumulative_bankroll_change: 0, biggest_win: null, biggest_loss: null,
+    cumulative_bankroll_change: 0, cumulative_starting_bankroll: 0, biggest_win: null, biggest_loss: null,
     vpip_rate: 0, aggression_factor: null,
     pfr_rate: 0, three_bet_rate: null, ats_rate: null,
     wtsd_rate: 0, won_at_showdown_rate: null, won_when_saw_flop_rate: null,
@@ -39,7 +39,7 @@ const realStats = {
     total_sessions: 2, total_hands: 5,
     win_count: 2, loss_count: 1, split_count: 1, fold_count: 1,
     win_rate: 0.4, loss_rate: 0.2, split_rate: 0.2, fold_rate: 0.2,
-    cumulative_bankroll_change: 150.5, biggest_win: 200, biggest_loss: -75,
+    cumulative_bankroll_change: 150.5, cumulative_starting_bankroll: 2000, biggest_win: 200, biggest_loss: -75,
     vpip_rate: 0.6, aggression_factor: 1.5,
     pfr_rate: 0.22, three_bet_rate: 0.08, ats_rate: 0.3,
     wtsd_rate: 0.25, won_at_showdown_rate: 0.55, won_when_saw_flop_rate: 0.48,
@@ -71,20 +71,21 @@ describe('StatsPage', () => {
 
         renderStatsPage()
 
-        await waitFor(() => expect(screen.getByText('Sessions played')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText('Sessions Played:')).toBeInTheDocument())
         // Sessions played/Hands played/All-time winnings count up (AnimatedNumber)
         // rather than rendering their final text synchronously -- wait for them.
         await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument()) // sessions played
         await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument()) // hands played
         await waitFor(() => expect(screen.getByText('+$150.50')).toBeInTheDocument())
+        expect(screen.getByText('(+7.5% vs. starting bankroll)')).toBeInTheDocument()
         expect(screen.getByText('$200.00')).toBeInTheDocument() // biggest win
         expect(screen.getByText('-$75.00')).toBeInTheDocument() // biggest loss
         expect(screen.getByText('60.0%')).toBeInTheDocument() // VPIP
         expect(screen.getByText('1.50')).toBeInTheDocument() // aggression factor
         expect(screen.getByText('22.0%')).toBeInTheDocument() // PFR
         expect(screen.getByText('30.0%')).toBeInTheDocument() // ATS
-        expect(screen.getByText('Sessions won')).toBeInTheDocument()
-        expect(screen.getByText('Hands won')).toBeInTheDocument()
+        expect(screen.getByText('Sessions Won:')).toBeInTheDocument()
+        expect(screen.getByText('Hands Won:')).toBeInTheDocument()
         expect(screen.getByText(/fold \/ aggression frequency by street/i)).toBeInTheDocument()
         expect(screen.getByText(/bankroll over time/i)).toBeInTheDocument()
     })
@@ -94,7 +95,7 @@ describe('StatsPage', () => {
 
         renderStatsPage()
 
-        await waitFor(() => expect(screen.getByText('Sessions played')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText('Sessions Played:')).toBeInTheDocument())
         expect(screen.getByLabelText('What is VPIP?')).toBeInTheDocument()
         expect(screen.getByLabelText('What is PFR?')).toBeInTheDocument()
         expect(screen.getByLabelText('What is WTSD?')).toBeInTheDocument()
@@ -112,7 +113,7 @@ describe('StatsPage', () => {
 
         renderStatsPage()
 
-        await waitFor(() => expect(screen.getByText('Sessions played')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText('Sessions Played:')).toBeInTheDocument())
         expect(screen.getByText('—')).toBeInTheDocument() // aggression factor, no data
         expect(screen.getByText(/play a few hands to see your play style here/i)).toBeInTheDocument()
     })

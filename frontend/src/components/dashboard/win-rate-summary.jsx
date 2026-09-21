@@ -17,28 +17,28 @@ const WinRateSummary = ({ winRate }) => (
     <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile
-                label="Win %"
+                label="Win %:"
                 numericValue={winRate.win.pct}
                 formatValue={(n) => formatPercent(n)}
                 variant="good"
                 tooltip={STAT_DESCRIPTIONS['Win %:']}
             />
             <StatTile
-                label="Loss %"
+                label="Loss %:"
                 numericValue={winRate.loss.pct}
                 formatValue={(n) => formatPercent(n)}
                 variant="critical"
                 tooltip={STAT_DESCRIPTIONS['Loss %:']}
             />
             <StatTile
-                label="Split %"
+                label="Split %:"
                 numericValue={winRate.split.pct}
                 formatValue={(n) => formatPercent(n)}
                 variant="neutral"
                 tooltip={STAT_DESCRIPTIONS['Split %:']}
             />
             <StatTile
-                label="Fold %"
+                label="Fold %:"
                 numericValue={winRate.fold.pct}
                 formatValue={(n) => formatPercent(n)}
                 variant="warning"
