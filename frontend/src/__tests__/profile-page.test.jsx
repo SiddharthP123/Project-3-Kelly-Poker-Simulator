@@ -65,7 +65,7 @@ describe('ProfilePage', () => {
 
         await waitFor(() => expect(screen.getByDisplayValue('Sid')).toBeInTheDocument())
         expect(screen.getByDisplayValue('Old bio')).toBeInTheDocument()
-        await waitFor(() => expect(screen.getByText('Sessions played')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText('Sessions Played:')).toBeInTheDocument())
         expect(screen.getByText('3')).toBeInTheDocument()
     })
 
