@@ -33,7 +33,7 @@ const GamePage = () => {
     }, [refreshSession])
 
     return (
-        <div className="relative flex min-h-svh flex-col overflow-hidden">
+        <div className="relative flex h-svh flex-col overflow-hidden">
             <AppHeader />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <AnimatedText
@@ -43,7 +43,7 @@ const GamePage = () => {
                     textClassName="font-black tracking-wide text-[14vw] sm:text-[14vw] md:text-[14vw] lg:text-[14vw] xl:text-[14vw] leading-none whitespace-nowrap"
                 />
             </div>
-            <main className="relative z-10 flex-1 p-4">
+            <main className="relative z-10 min-h-0 flex-1 p-4">
                 {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
                 {session && (
                     <PokerTable sessionId={sessionId} session={session} onSessionUpdate={refreshSession} />

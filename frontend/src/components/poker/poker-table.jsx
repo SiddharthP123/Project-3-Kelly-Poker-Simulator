@@ -214,18 +214,23 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     ]
 
     return (
-        <div className="mx-auto flex w-[97%] max-w-[1600px] flex-col gap-6">
+        <div className="mx-auto flex h-full min-h-0 w-[97%] max-w-[1600px] flex-col gap-6">
             <h1 className="text-center text-3xl font-bold text-white">
                 Bankroll: <span className="text-white/50">{formatCurrency(session.current_bankroll)}</span>
             </h1>
 
             {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
 
-            <div className="flex flex-col gap-8 rounded-xl border-2 border-white/25 p-8 lg:flex-row lg:items-stretch">
-                <div className="relative flex-1">
+            {/* flex-1/min-h-0 so this row fills whatever height is left under
+                the heading above -- the felt and the action card each derive
+                their own size from that (definite) height rather than the
+                felt's aspect-ratio pushing the page taller than the viewport
+                and forcing a scrollbar. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-8 rounded-xl border-2 border-white/25 p-8 lg:flex-row lg:items-stretch">
+                <div className="relative h-full flex-1">
                     <div
                         key={hand?.id ?? 'idle'}
-                        className="relative aspect-[16/15] w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
+                        className="relative mx-auto aspect-[16/15] h-full max-w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
                     >
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
@@ -305,7 +310,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                     )}
                 </div>
 
-                <div className="flex w-full flex-col lg:w-[440px] lg:shrink-0">
+                <div className="flex h-full w-full flex-col lg:w-[440px] lg:shrink-0">
                     <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className="h-full">
                         <div className="flex h-full w-full flex-col gap-4 rounded-lg border border-white/15 bg-black/30 p-6">
                             {/* flex-1 so this section absorbs whatever height the
