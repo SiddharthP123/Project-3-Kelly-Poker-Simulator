@@ -63,7 +63,7 @@ const LobbyPage = () => {
                 {!isCheckingForActiveSession && activeSession && (
                     <Card>
                         <CardHeader>
-                            <CardTitle>Resume your session</CardTitle>
+                            <CardTitle>Resume Your Session</CardTitle>
                             <CardDescription>
                                 {activeSession.num_opponents} opponent
                                 {activeSession.num_opponents > 1 ? 's' : ''} &mdash;{' '}
@@ -87,7 +87,7 @@ const LobbyPage = () => {
                 {!isCheckingForActiveSession && (
                     <Card>
                         <CardHeader>
-                            <CardTitle>{activeSession ? 'Start a new session' : 'Start a session'}</CardTitle>
+                            <CardTitle>{activeSession ? 'Start A New Session:' : 'Start A Session:'}</CardTitle>
                             <CardDescription>Choose your opponent and stakes.</CardDescription>
                         </CardHeader>
                         <CardContent>
