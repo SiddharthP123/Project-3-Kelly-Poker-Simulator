@@ -16,7 +16,7 @@ const STAT_DESCRIPTIONS = {
     'All-Time Winnings:': 'Your total bankroll change across every session, added together.',
     'Biggest Win:': 'The largest single-hand amount you have won.',
     'Biggest Loss:': 'The largest single-hand amount you have lost.',
-    VPIP: 'Voluntarily Put money In Pot: The percentage of hands where you called or raised preflop, rather than folding or only posting a forced blind. A high VPIP means you are playing a lot of hands.',
+    VPIP: 'Voluntarily Put Money In The Pot: The percentage of hands where you called or raised preflop, rather than folding or only posting a forced blind. A high VPIP means you are playing a lot of hands.',
     PFR: 'Preflop Raise: The percentage of hands where your first preflop action was a raise, rather than just calling. Comparing PFR to VPIP shows how often you raise versus just call when you play a hand.',
     '3-Bet:':
         'The percentage of hands, among those where you faced an existing preflop raise, where you re-raised (the third bet of the round, after the blind and the first raise).',

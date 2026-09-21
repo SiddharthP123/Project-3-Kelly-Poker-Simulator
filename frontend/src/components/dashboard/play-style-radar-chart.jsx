@@ -34,18 +34,18 @@ const chartConfig = {
  * @param {object} stats - a UserStatsResponse
  */
 const buildPlayStyleData = (stats) => [
-    { axis: 'VPIP', value: stats.vpip_rate * 100, classification: classifyStat('vpip', stats.vpip_rate) },
-    { axis: 'PFR', value: stats.pfr_rate * 100, classification: classifyStat('pfr', stats.pfr_rate) },
+    { axis: 'VPIP:', value: stats.vpip_rate * 100, classification: classifyStat('vpip', stats.vpip_rate) },
+    { axis: 'PFR:', value: stats.pfr_rate * 100, classification: classifyStat('pfr', stats.pfr_rate) },
     {
-        axis: 'Aggression',
+        axis: 'Aggression:',
         value:
             stats.aggression_factor == null
                 ? 0
                 : (Math.min(stats.aggression_factor, AGGRESSION_FACTOR_DISPLAY_CAP) / AGGRESSION_FACTOR_DISPLAY_CAP) * 100,
         classification: classifyStat('aggressionFactor', stats.aggression_factor),
     },
-    { axis: 'Win rate', value: stats.win_rate * 100, classification: 'neutral' },
-    { axis: 'Fold rate', value: stats.fold_rate * 100, classification: 'neutral' },
+    { axis: 'Win Rate:', value: stats.win_rate * 100, classification: 'neutral' },
+    { axis: 'Fold Rate:', value: stats.fold_rate * 100, classification: 'neutral' },
 ]
 
 const renderClassifiedDot = (props) => {
