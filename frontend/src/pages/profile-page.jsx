@@ -242,6 +242,7 @@ const ProfilePage = () => {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="border-zinc-500 bg-zinc-800 text-zinc-50 hover:bg-zinc-600 hover:text-zinc-50"
                                 onClick={() => {
                                     setAvatarSource('web')
                                     setIsPhotoMenuOpen(false)
@@ -253,6 +254,7 @@ const ProfilePage = () => {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="border-zinc-500 bg-zinc-800 text-zinc-50 hover:bg-zinc-600 hover:text-zinc-50"
                                 onClick={() => {
                                     fileInputRef.current?.click()
                                     setIsPhotoMenuOpen(false)

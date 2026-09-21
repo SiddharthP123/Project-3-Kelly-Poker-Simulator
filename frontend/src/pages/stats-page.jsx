@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { InfoIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-chart'
@@ -7,6 +8,9 @@ import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
 import { AppHeader } from '@/components/layout/app-header'
+import { AnimatedNumber } from '@/components/ui/animated-number'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useUserStats } from '@/hooks/use-user-stats'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { formatCurrency } from '@/lib/format'
@@ -23,6 +27,50 @@ const itemVariants = {
     hidden: { opacity: 0, y: 16 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 }
+
+// Matches stat-tile.jsx's own good/critical/neutral tokens -- kept local
+// (not reused from StatTile) since the top summary cards need this page's
+// translucent BorderBeam look, not StatTile's shared solid-card style
+// (still used by the Play Style and Hand Results tiles further down).
+const STAT_CARD_VARIANT_CLASSES = {
+    good: 'text-green-600',
+    critical: 'text-red-600',
+    neutral: 'text-foreground',
+}
+
+/**
+ * `subtext`, when passed, renders inline next to the value (not on its own
+ * line) so a card that needs an extra detail -- e.g. All-Time Winnings'
+ * percent-of-starting-bankroll -- stays the same height as a plain card.
+ */
+const StatCard = ({ label, value, numericValue, formatValue, variant = 'neutral', tooltip, subtext, className }) => (
+    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className={className}>
+        <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-transparent p-4">
+            <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">{label}</p>
+                {tooltip && (
+                    <Tooltip>
+                        <TooltipTrigger
+                            aria-label={`What is ${label}?`}
+                            className="text-muted-foreground/60 hover:text-muted-foreground"
+                        >
+                            <InfoIcon className="size-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent>{tooltip}</TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+            <p className={`flex items-baseline gap-2 text-xl font-semibold tabular-nums ${STAT_CARD_VARIANT_CLASSES[variant]}`}>
+                {numericValue != null && formatValue ? (
+                    <AnimatedNumber value={numericValue} format={formatValue} />
+                ) : (
+                    value
+                )}
+                {subtext && <span className="text-xs font-normal text-muted-foreground">{subtext}</span>}
+            </p>
+        </div>
+    </BorderBeam>
+)
 
 /**
  * Account-wide statistics, aggregated across every session the user has
@@ -46,7 +94,9 @@ const StatsPage = () => {
             const data = await getMyStats()
             setStats(data)
         } catch (error) {
-            setErrorMessage(error.detail || 'Could not load your stats')
+            setErrorMessage(
+                error.detail || 'Could not load your statistics. Please try again later.',
+            )
         }
     }, [getMyStats])
 
@@ -80,15 +130,23 @@ const StatsPage = () => {
         fold: { count: stats.fold_count, pct: stats.fold_rate },
     }
 
+    const allTimeWinningsVariant =
+        stats.cumulative_bankroll_change > 0 ? 'good' : stats.cumulative_bankroll_change < 0 ? 'critical' : 'neutral'
+    const allTimeWinningsPct =
+        stats.cumulative_starting_bankroll > 0
+            ? (stats.cumulative_bankroll_change / stats.cumulative_starting_bankroll) * 100
+            : 0
+
     return (
         <div className="flex min-h-svh flex-col">
             <AppHeader />
             <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4">
-                <h1 className="text-xl font-semibold">Your stats</h1>
+                <h1 className="text-xl font-semibold">Basic Statistics:</h1>
 
                 {stats.total_sessions === 0 ? (
                     <p className="text-center text-muted-foreground">
-                        No sessions played yet -- start one from the lobby to see your stats here.
+                        No sessions played yet. Start one from the lobby to see your updated stats
+                        here!
                     </p>
                 ) : (
                     <motion.div
@@ -97,68 +155,75 @@ const StatsPage = () => {
                         initial="hidden"
                         animate="visible"
                     >
-                        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                            <StatTile
-                                label="Sessions played"
-                                numericValue={stats.total_sessions}
-                                formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Sessions Played:']}
-                            />
-                            <StatTile
-                                label="Sessions won"
-                                numericValue={stats.sessions_won}
-                                formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Sessions Won:']}
-                            />
-                            <StatTile
-                                label="Hands played"
-                                numericValue={stats.total_hands}
-                                formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Hands Played:']}
-                            />
-                            <StatTile
-                                label="Hands won"
-                                numericValue={stats.hands_won}
-                                formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Hands Won:']}
-                            />
-                            <StatTile
-                                label="All-time winnings"
+                        <motion.div variants={itemVariants} className="flex flex-col gap-3">
+                            <StatCard
+                                className="w-full"
+                                label="All-Time Winnings:"
                                 numericValue={stats.cumulative_bankroll_change}
                                 formatValue={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(n)}`}
-                                variant={
-                                    stats.cumulative_bankroll_change > 0
-                                        ? 'good'
-                                        : stats.cumulative_bankroll_change < 0
-                                          ? 'critical'
-                                          : 'neutral'
-                                }
+                                variant={allTimeWinningsVariant}
                                 tooltip={STAT_DESCRIPTIONS['All-Time Winnings:']}
+                                subtext={`(${allTimeWinningsPct >= 0 ? '+' : ''}${allTimeWinningsPct.toFixed(1)}% vs. starting bankroll)`}
                             />
-                            <StatTile
-                                label="Biggest win"
-                                value={stats.biggest_win != null ? formatCurrency(stats.biggest_win) : '—'}
-                                variant={stats.biggest_win != null ? 'good' : 'neutral'}
-                                tooltip={STAT_DESCRIPTIONS['Biggest Win:']}
-                            />
-                            <StatTile
-                                label="Biggest loss"
-                                value={stats.biggest_loss != null ? formatCurrency(stats.biggest_loss) : '—'}
-                                variant={stats.biggest_loss != null ? 'critical' : 'neutral'}
-                                tooltip={STAT_DESCRIPTIONS['Biggest Loss:']}
-                            />
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                <StatCard
+                                    label="Sessions Played:"
+                                    numericValue={stats.total_sessions}
+                                    formatValue={(n) => `${Math.round(n)}`}
+                                    tooltip={STAT_DESCRIPTIONS['Sessions Played:']}
+                                />
+                                <StatCard
+                                    label="Sessions Won:"
+                                    numericValue={stats.sessions_won}
+                                    formatValue={(n) => `${Math.round(n)}`}
+                                    tooltip={STAT_DESCRIPTIONS['Sessions Won:']}
+                                />
+                                <StatCard
+                                    label="Hands Played:"
+                                    numericValue={stats.total_hands}
+                                    formatValue={(n) => `${Math.round(n)}`}
+                                    tooltip={STAT_DESCRIPTIONS['Hands Played:']}
+                                />
+                                <StatCard
+                                    label="Hands Won:"
+                                    numericValue={stats.hands_won}
+                                    formatValue={(n) => `${Math.round(n)}`}
+                                    tooltip={STAT_DESCRIPTIONS['Hands Won:']}
+                                />
+                                <StatCard
+                                    label="Biggest Win:"
+                                    value={
+                                        stats.biggest_win != null
+                                            ? formatCurrency(stats.biggest_win)
+                                            : '—'
+                                    }
+                                    variant={stats.biggest_win != null ? 'good' : 'neutral'}
+                                    tooltip={STAT_DESCRIPTIONS['Biggest Win:']}
+                                />
+                                <StatCard
+                                    label="Biggest Loss:"
+                                    value={
+                                        stats.biggest_loss != null
+                                            ? formatCurrency(stats.biggest_loss)
+                                            : '—'
+                                    }
+                                    variant={stats.biggest_loss != null ? 'critical' : 'neutral'}
+                                    tooltip={STAT_DESCRIPTIONS['Biggest Loss:']}
+                                />
+                            </div>
                         </motion.div>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-3">
-                            <h2 className="text-lg font-semibold">Win rate</h2>
+                            <h2 className="text-lg font-semibold">Hand Results:</h2>
                             <WinRateSummary winRate={winRate} />
                         </motion.section>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-4">
                             <h2 className="text-lg font-semibold">Play style</h2>
                             <p className="text-sm text-muted-foreground">
-                                Green means the stat sits in a generally healthy range; red flags something worth
-                                a closer look -- neither is a hard rule, just a signal.
+                                Green means the stat sits in a generally healthy range; red flags
+                                something worth a closer look -- neither is a hard rule, just a
+                                signal.
                             </p>
                             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                                 <StatRadialGauge
@@ -205,7 +270,11 @@ const StatsPage = () => {
                                 />
                                 <StatTile
                                     label="Aggression factor"
-                                    value={stats.aggression_factor != null ? stats.aggression_factor.toFixed(2) : '—'}
+                                    value={
+                                        stats.aggression_factor != null
+                                            ? stats.aggression_factor.toFixed(2)
+                                            : '—'
+                                    }
                                     tooltip={STAT_DESCRIPTIONS['Aggression Factor:']}
                                 />
                             </div>
@@ -213,10 +282,15 @@ const StatsPage = () => {
                         </motion.section>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-3">
-                            <h2 className="text-lg font-semibold">Fold / aggression frequency by street</h2>
+                            <h2 className="text-lg font-semibold">
+                                Fold / aggression frequency by street
+                            </h2>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 {['preflop', 'flop', 'turn', 'river'].map((street) => (
-                                    <div key={street} className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
+                                    <div
+                                        key={street}
+                                        className="flex flex-col gap-1 rounded-lg border p-3 text-sm"
+                                    >
                                         <p className="font-medium capitalize">{street}</p>
                                         <p className="text-muted-foreground">
                                             Fold:{' '}
@@ -238,10 +312,12 @@ const StatsPage = () => {
                         <motion.section variants={itemVariants} className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">Bankroll over time</h2>
                             <p className="text-sm text-muted-foreground">
-                                Every session, chronologically -- a jump back down is a new session starting at its
-                                own bankroll, not a loss.
+                                Every session, chronologically -- a jump back down is a new session
+                                starting at its own bankroll, not a loss.
                             </p>
-                            <BankrollGrowthChart series={computeBankrollSeries(stats.bankroll_history)} />
+                            <BankrollGrowthChart
+                                series={computeBankrollSeries(stats.bankroll_history)}
+                            />
                         </motion.section>
                     </motion.div>
                 )}

@@ -28,6 +28,10 @@ class UserStatsResponse(ApiModel):
     # (and remain correct even if a session still has a hand in progress).
     cumulative_bankroll_change: float
 
+    # Sum of each session's own starting_bankroll -- the denominator for
+    # the all-time-winnings percentage shown on the Stats page.
+    cumulative_starting_bankroll: float
+
     # None (not 0) when there's no hand of that kind at all yet -- "you've
     # never won" and "you won exactly $0 once" are different facts.
     biggest_win: float | None
