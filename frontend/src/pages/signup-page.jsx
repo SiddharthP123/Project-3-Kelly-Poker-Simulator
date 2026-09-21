@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { AnimatedText } from '@/components/ui/animated-shiny-text'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/hooks/use-auth'
+
+const WELCOME_GRADIENT = 'linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.16), rgba(255,255,255,0.03))'
 
 const SignupPage = () => {
     const { signup } = useAuth()
@@ -33,63 +37,75 @@ const SignupPage = () => {
     }
 
     return (
-        <div className="flex min-h-svh items-center justify-center p-4">
-            <Card className="w-full max-w-sm">
-                <CardHeader>
-                    <CardTitle>Create an account</CardTitle>
-                    <CardDescription>Start playing against the Kelly-aware AI opponents.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-2">
-                            <Label htmlFor="display-name">Display name (optional)</Label>
-                            <Input
-                                id="display-name"
-                                type="text"
-                                value={displayName}
-                                onChange={(event) => setDisplayName(event.target.value)}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(event) => setEmail(event.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <Label htmlFor="password">Password</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                minLength={8}
-                                value={password}
-                                onChange={(event) => setPassword(event.target.value)}
-                                required
-                            />
-                        </div>
-                        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? 'Creating account...' : 'Sign up'}
-                        </Button>
-                        <p className="text-center text-sm text-muted-foreground">
-                            Already have an account?{' '}
-                            <Link to="/login" className="underline">
-                                Log in
-                            </Link>
-                        </p>
-                        <p className="text-center text-sm text-muted-foreground">
-                            New to poker?{' '}
-                            <Link to="/how-to-play" className="underline">
-                                Learn how to play
-                            </Link>
-                        </p>
-                    </form>
-                </CardContent>
-            </Card>
+        <div className="relative flex min-h-svh items-center justify-center overflow-hidden p-4">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <AnimatedText
+                    text="WELCOME"
+                    gradientColors={WELCOME_GRADIENT}
+                    gradientAnimationDuration={2.5}
+                    textClassName="font-black tracking-wide text-[14vw] sm:text-[14vw] md:text-[14vw] lg:text-[14vw] xl:text-[14vw] leading-none whitespace-nowrap"
+                />
+            </div>
+            <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className="relative z-10 w-full max-w-sm">
+                <Card className="w-full border-border bg-transparent ring-0">
+                    <CardHeader>
+                        <CardTitle>Create An Account:</CardTitle>
+                        <CardDescription>
+                            Start playing against the Kelly-aware AI opponents.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="display-name">Display Name (Optional):</Label>
+                                <Input
+                                    id="display-name"
+                                    type="text"
+                                    value={displayName}
+                                    onChange={(event) => setDisplayName(event.target.value)}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="email">Email:</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="password">Password:</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    minLength={8}
+                                    value={password}
+                                    onChange={(event) => setPassword(event.target.value)}
+                                    required
+                                />
+                            </div>
+                            {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? 'Creating Account...' : 'Sign Up'}
+                            </Button>
+                            <p className="text-center text-sm text-muted-foreground">
+                                Already Have An Account?{' '}
+                                <Link to="/login" className="underline">
+                                    Log In
+                                </Link>
+                            </p>
+                            <p className="text-center text-sm text-muted-foreground">
+                                New To Poker?{' '}
+                                <Link to="/how-to-play" className="underline">
+                                    Learn How To Play
+                                </Link>
+                            </p>
+                        </form>
+                    </CardContent>
+                </Card>
+            </BorderBeam>
         </div>
     )
 }
