@@ -52,7 +52,7 @@ solid and tested before any API or UI is built on top of it.
 | 12 | Real Poker Engine (multi-street, multi-opponent, side pots) | ✅ Done |
 | 13 | Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics | ✅ Done |
 | 14 | Player Education, Advanced Stats & Table Polish | ✅ Done |
-| 15 | Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes | 🚧 In progress |
+| 15 | Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes | ✅ Done |
 
 ## Setup
 
