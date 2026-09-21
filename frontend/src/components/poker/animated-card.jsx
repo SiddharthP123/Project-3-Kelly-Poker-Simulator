@@ -10,6 +10,9 @@ const SIZE_CLASSES = {
     // "md" (used for board/other-seat cards) so the panel actually fills
     // the width it's given instead of leaving visible empty space.
     lg: 'h-28 w-20 text-2xl',
+    // Exactly 1.25x "lg" (h-28/w-20 -> h-[8.75rem]/w-[6.25rem]), for the
+    // game page's own 1.25x scale-up of its whole board.
+    xl: 'h-[8.75rem] w-[6.25rem] text-3xl',
 }
 
 /**
