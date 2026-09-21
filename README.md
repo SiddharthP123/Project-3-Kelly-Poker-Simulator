@@ -6,6 +6,16 @@ opponents and a virtual bankroll manager sized using the **Kelly Criterion**.
 No real money is involved anywhere — this is a simulator/game against AI opponents using a
 virtual bankroll only.
 
+## Live demo
+
+**[project-3-kelly-poker-simulator.vercel.app](https://project-3-kelly-poker-simulator.vercel.app)**
+— open it directly, no invite or waitlist needed.
+
+Sign up with any email + password to play (real authentication, not a shared demo login). The
+backend (Render's free tier) spins down after ~15 minutes idle, so the very first request after
+a break can take 10-30 seconds to respond — that's expected, not a bug. Full deployment
+architecture and runbook: see [Part 11](#part-11-deployment).
+
 ## Why poker?
 
 The Kelly Criterion was originally developed for gambling/bankroll management and is the exact
@@ -64,20 +74,14 @@ pre-commit install
 
 ## Part 1: Cards, Deck & Dealing
 
-**Key insight:** A deck is just 52 unique `(rank, suit)` pairs. Dealing without duplicating cards
-is trivial if you treat the deck as a mutable pool you *remove* cards from — once a card is dealt,
-it physically leaves the deck, so there is no way to deal it twice. That single design decision
-(deal = pop from the deck) is what guarantees no-duplicate dealing, rather than any explicit
-"has this card already been dealt?" check.
+**Key insight:** a deck is just 52 unique `(rank, suit)` pairs. Treat it as a mutable pool you
+*remove* cards from as you deal — once a card is dealt it physically leaves the deck, so no
+explicit "already dealt?" check is needed.
 
-- `poker/cards.py` — `Suit` and `Rank` enums, and an immutable `Card` (rank + suit), with a
-  compact string form (e.g. `Ah` = Ace of hearts, `Tc` = Ten of clubs — standard poker notation,
-  `T` for ten avoids confusion with `10` taking two characters).
-- `poker/deck.py` — `Deck` builds all 52 cards, `shuffle()`s them, and deals via `deal(n)`
-  (generic), `deal_hole_cards(num_players)` (2 cards per player, one at a time in dealing order),
-  and `deal_community(n)` (flop/turn/river).
-
-Run just this part's tests:
+- `poker/cards.py` — `Suit`/`Rank` enums and an immutable `Card`, with compact string notation
+  (`Ah` = Ace of hearts, `Tc` = Ten of clubs — `T` avoids `10` taking two characters).
+- `poker/deck.py` — `Deck` builds all 52 cards, `shuffle()`s, and deals via `deal(n)`,
+  `deal_hole_cards(num_players)`, and `deal_community(n)` (flop/turn/river).
 
 ```bash
 pytest tests/test_cards.py tests/test_deck.py -v
@@ -87,29 +91,21 @@ pytest tests/test_cards.py tests/test_deck.py -v
 
 ## Part 2: Hand Evaluator
 
-**Key insight:** every 5-card hand can be reduced to one sortable tuple:
-`(category, tiebreakers)`. Once every hand is turned into one of these tuples, deciding a winner
-is just Python's `max()` over tuples — no special-cased "if flush beats straight" logic is
-needed anywhere, because tuple comparison already checks the category first and only falls
-through to tiebreakers when two hands share a category.
+**Key insight:** every 5-card hand reduces to one sortable tuple: `(category, tiebreakers)`.
+Once every hand is a tuple, deciding a winner is just Python's `max()` — no special-cased "flush
+beats straight" logic anywhere, since tuple comparison checks category first and only falls
+through to tiebreakers within the same category.
 
-The tiebreakers themselves come from one trick: group the 5 ranks by how often each appears,
-then sort those groups by `(count, rank)` descending. That single ordering produces the correct
-tiebreak order for every category that involves duplicate ranks — e.g. for two pair the result is
-`(high_pair, low_pair, kicker)`, which is exactly the order poker rules say to compare in (higher
-pair first, even if the other hand's low pair or kicker is better).
+Tiebreakers come from one trick: group the 5 ranks by frequency, then sort groups by `(count,
+rank)` descending. That single ordering produces the correct tiebreak order for every category
+with duplicate ranks (e.g. two pair → `high_pair, low_pair, kicker`).
 
-Two things need special-casing on top of that: straights (need 5 *distinct*, consecutive ranks —
-including the "wheel", A-2-3-4-5, where the Ace plays low and the straight is 5-high, not
-Ace-high) and flushes (all 5 cards share a suit). A straight flush is just a hand that is both.
+Two cases need special-casing: straights (5 distinct consecutive ranks, including the wheel
+A-2-3-4-5 where the Ace plays low) and flushes (5 cards, same suit). A straight flush is both.
 
-- `poker/hand_evaluator.py` — `HandCategory` (ordered enum, high card through straight flush),
-  `evaluate_5(cards)` for exactly 5 cards, `best_hand(cards)` for 5-7 cards (checks all `C(7,5) =
-  21` five-card combinations and keeps the best — simple brute force, fast enough at this scale),
-  and `compare_hands(hands)` which returns the winning player index/indices (more than one index
-  means a split pot).
-
-Run just this part's tests:
+- `poker/hand_evaluator.py` — `HandCategory` (ordered enum), `evaluate_5(cards)`,
+  `best_hand(cards)` for 5-7 cards (brute-forces all `C(7,5) = 21` combinations), and
+  `compare_hands(hands)` (returns winning index/indices — more than one means a split pot).
 
 ```bash
 pytest tests/test_hand_evaluator.py -v
@@ -119,27 +115,21 @@ pytest tests/test_hand_evaluator.py -v
 
 ## Part 3: Monte Carlo Equity Calculator
 
-**Key insight:** we don't know the opponents' hole cards or the rest of the board, but we do
-know the pool of cards they could possibly be. Rather than solving the win probability
-analytically (the exact combinatorics get messy fast), we repeatedly guess a plausible
-reality — deal the unknown cards at random, see who wins with Part 2's `compare_hands` — thousands
-of times, and let the win rate converge to the true probability. Same Monte Carlo idea as
-Project 1, just applied to cards instead of price paths.
+**Key insight:** we don't know opponents' hole cards or the rest of the board, but we know the
+pool they could come from. Instead of solving win probability analytically, repeatedly deal the
+unknown cards at random and check who wins with Part 2's `compare_hands` — thousands of times,
+letting the win rate converge to the true probability. Same idea as Project 1's Monte Carlo, just
+applied to cards.
 
 `calculate_equity(hole_cards, num_opponents, board, num_simulations, seed)` returns an
-`EquityResult` with `win` / `tie` / `lose` shares plus `equity` — the expected pot share (1 per
-outright win, 1/n per n-way tie, 0 per loss). `equity` is the number later parts (EV, Kelly)
-actually need, since a tie only wins back a fraction of the pot, not the whole thing.
+`EquityResult` with `win`/`tie`/`lose` shares plus `equity` (expected pot share — 1 per win, 1/n
+per n-way tie, 0 per loss). `equity` is what later parts (EV, Kelly) actually need.
 
-Sanity-checked against a well-known benchmark: pocket Aces heads-up against one random hand wins
-**85.2%** of the time over 20,000 simulations, matching the commonly cited ~85% figure almost
-exactly.
+Sanity-checked against a known benchmark: pocket Aces heads-up wins **85.2%** over 20,000
+simulations, matching the commonly cited ~85% figure.
 
-- `poker/equity.py` — `EquityResult` dataclass, `calculate_equity(...)`. Opponents are assumed to
-  hold uniformly random hole cards (no modelled "range") — the standard, simplest equity
-  calculation, and the one the AI opponents in Part 7 will call directly.
-
-Run just this part's tests:
+- `poker/equity.py` — `EquityResult` dataclass, `calculate_equity(...)`. Opponents are assumed
+  to hold uniformly random hole cards (no modelled range) — the standard baseline calculation.
 
 ```bash
 pytest tests/test_equity.py -v
@@ -149,25 +139,21 @@ pytest tests/test_equity.py -v
 
 ## Part 4: Expected Value & Pot Odds
 
-**Key insight:** pot odds convert a bet size into a probability threshold. Given a pot of size
-`P` facing a bet of `B`, calling breaks even when `equity * P == (1 - equity) * B` — solving for
-equity gives `B / (P + B)`, the minimum win probability needed to call profitably. Comparing
-Part 3's simulated equity against that single number tells you whether to call, without ever
-computing a dollar EV. This is the exact same "compare an estimated probability to a break-even
-threshold" logic used to judge whether an investment's expected return justifies its risk.
+**Key insight:** pot odds convert a bet size into a probability threshold. Facing pot `P` and bet
+`B`, calling breaks even when `equity * P == (1 - equity) * B` — solving for equity gives `B / (P
++ B)`, the minimum win probability needed to call profitably. Comparing Part 3's simulated equity
+against that number tells you whether to call, no dollar EV required. Same "probability vs.
+break-even threshold" logic used to judge whether an investment's expected return justifies its
+risk.
 
-Raising is modelled as a probability-weighted mix of two outcomes: the opponent folds now (you
-win the pot as it stands) or they call (it goes to showdown, and the math collapses back to the
-same call-EV formula, just using the raise size as the bet). No full game-tree solving needed —
-just one extra input, an assumed fold probability.
+Raising is modelled as a probability-weighted mix: opponent folds (win the pot as-is) or calls
+(same call-EV formula, using the raise size). No full game-tree solving — just one extra input,
+an assumed fold probability.
 
-- `poker/ev.py` — `pot_odds_breakeven_equity(pot_size, bet_to_call)`, `ev_fold()` (always 0 —
-  folding risks and wins nothing further), `ev_call(equity, pot_size, bet_to_call)`,
-  `ev_raise(equity, pot_size, raise_amount, fold_probability)`, and `best_action(...)` which picks
-  the highest-EV action out of fold/call/(optional) raise and returns a `Decision` showing the EV
-  of every option considered.
-
-Run just this part's tests:
+- `poker/ev.py` — `pot_odds_breakeven_equity(pot_size, bet_to_call)`, `ev_fold()` (always 0),
+  `ev_call(equity, pot_size, bet_to_call)`, `ev_raise(equity, pot_size, raise_amount,
+  fold_probability)`, and `best_action(...)` (picks highest-EV action, returns a `Decision`
+  showing every option's EV).
 
 ```bash
 pytest tests/test_ev.py -v
@@ -177,38 +163,28 @@ pytest tests/test_ev.py -v
 
 ## Part 5: The Kelly Criterion
 
-**This is the finance parallel the whole project is built around.** Kelly was developed for
-exactly this kind of gambling problem — what fraction of your bankroll to stake on a repeatable
-bet with a known edge — but the identical formula is used to size positions in a real investment
-portfolio. If you have an edge (expected return better than break-even) and know the "odds" (the
-payoff structure of the bet/trade), Kelly gives the fraction of capital to allocate that
-maximises long-run *compound* growth. Ed Thorp used this exact reasoning to go from card
-counting in blackjack to running a hedge fund.
+**The finance parallel the whole project is built around.** Kelly answers "what fraction of your
+bankroll to stake on a repeatable bet with a known edge" — the identical formula sizes positions
+in a real investment portfolio. Given an edge and known odds, Kelly gives the capital fraction
+that maximises long-run *compound* growth. Ed Thorp used this exact reasoning to go from
+blackjack card counting to running a hedge fund.
 
-**Key insight:** Kelly isn't derived by guesswork — it's the fraction `f` that maximises expected
-*log*-growth per bet, `g(f) = p·ln(1 + f·b) + q·ln(1 - f)`, not expected value. Log-growth (not
-plain EV) is the right thing to maximise for a bet you repeat many times, because bankroll
-compounds multiplicatively — maximising raw EV instead would push you toward betting your whole
-bankroll every time, which guarantees eventual ruin. Setting `g'(f) = 0` and solving gives the
-closed-form formula: `f* = (p·b − q) / b`. The test suite proves this directly — for several
-`(p, b)` pairs, it checks that `expected_log_growth` at the computed Kelly fraction is never
-beaten by any nearby fraction, confirming the formula really is the calculus-derived optimum, not
-just a memorised expression.
+**Key insight:** Kelly is the fraction `f` that maximises expected *log*-growth per bet, `g(f) =
+p·ln(1 + f·b) + q·ln(1 - f)`, not plain expected value. Log-growth is correct for a bet repeated
+many times because bankroll compounds multiplicatively — maximising raw EV instead pushes toward
+betting the whole bankroll every time, which guarantees eventual ruin. Setting `g'(f) = 0` gives
+the closed form: `f* = (p·b − q) / b`. The test suite proves this directly: for several `(p, b)`
+pairs, it checks `expected_log_growth` at the Kelly fraction is never beaten by any nearby
+fraction.
 
-A negative `f*` means there's no edge at all — the correct action is to bet nothing, not to bet a
-negative amount (you can't take the other side of a poker hand you're already holding).
-`fractional_kelly` clips this to 0. It also supports betting less than full Kelly ("half Kelly"
-etc.) — growth near the Kelly peak is flat, but variance keeps rising linearly with bet size, so
-practitioners commonly trade a little growth for meaningfully lower drawdowns. Part 6 compares
-these strategies directly.
+A negative `f*` means no edge — bet nothing, not a negative amount. `fractional_kelly` clips this
+to 0, and also supports "half Kelly" etc. — growth near the Kelly peak is flat, but variance keeps
+rising linearly with bet size, so trading a little growth for lower drawdowns is common practice.
+Part 6 compares these strategies directly.
 
-- `poker/kelly.py` — `kelly_fraction(win_probability, odds)` (raw formula), `fractional_kelly(...,
-  fraction=1.0)` (clipped, scalable), `kelly_fraction_from_pot_odds(equity, pot_size,
-  bet_to_call, kelly_multiplier=1.0)` (bridges Parts 3 & 4 — calling risks `bet_to_call` to win
-  `pot_size`, i.e. "b to 1" odds of `pot_size / bet_to_call`), and `expected_log_growth(...)` (the
-  theoretical justification, and the same function real position-sizing math uses).
-
-Run just this part's tests:
+- `poker/kelly.py` — `kelly_fraction(win_probability, odds)`, `fractional_kelly(...,
+  fraction=1.0)`, `kelly_fraction_from_pot_odds(equity, pot_size, bet_to_call,
+  kelly_multiplier=1.0)` (bridges Parts 3 & 4), and `expected_log_growth(...)`.
 
 ```bash
 pytest tests/test_kelly.py -v
@@ -218,43 +194,34 @@ pytest tests/test_kelly.py -v
 
 ## Part 6: Bankroll Simulator
 
-**Key insight:** the "aggressive growth vs. safety" trade-off in bet sizing isn't a matter of risk
-tolerance — it's a direct mathematical consequence of how the *same* sequence of wins and losses
-compounds under different stake sizes. Past the Kelly fraction, both risk of ruin **and** long-run
-growth get worse together, because a big loss erases gains faster than wins can rebuild them.
-Kelly betting can never hit exactly zero from a finite run of bets (every stake is a fraction
-below 1 of whatever remains — "Kelly can't go broke"), while all-in betting means any single loss
-is total, immediate ruin. Part 5 proved the growth-maximising property algebraically; this part
-demonstrates the ruin side of the story empirically, simulating the same modest edge
-(55% win probability, even-money odds) under four staking strategies over 200 hands:
+**Key insight:** the "aggressive growth vs. safety" trade-off in bet sizing is a direct
+mathematical consequence of how the same sequence of wins/losses compounds under different stake
+sizes — not a matter of risk tolerance. Past the Kelly fraction, both risk of ruin **and**
+long-run growth get worse together, since a big loss erases gains faster than wins rebuild them.
+Kelly betting can never hit exactly zero (every stake is a fraction below 1 of what remains — it
+"can't go broke"), while all-in betting means any single loss is total. Part 5 proved the
+growth-maximising property algebraically; this part demonstrates the ruin side empirically,
+simulating a modest edge (55% win probability, even-money) under four staking strategies over 200
+hands:
 
 ![Bankroll growth curves by staking strategy](docs/part-6-plots/bankroll_growth_curves.png)
 
 ![Risk of ruin and median final bankroll by strategy](docs/part-6-plots/risk_of_ruin_comparison.png)
 
-Full Kelly has both the **highest median outcome** and **zero risk of ruin** — it isn't a
-trade-off between the two, it strictly dominates every less-adapted strategy tested. All-in has
-the same edge but a 100% risk of ruin, because surviving 200 hands undefeated at 55% is
-astronomically unlikely, and a single loss with an all-in stake is unrecoverable.
+Full Kelly has both the **highest median outcome** and **zero risk of ruin** — it strictly
+dominates every less-adapted strategy tested, not a trade-off. All-in has the same edge but 100%
+risk of ruin: surviving 200 hands undefeated at 55% is astronomically unlikely, and one loss is
+unrecoverable at an all-in stake.
 
 - `poker/bankroll.py` — `fixed_stake_strategy`, `kelly_strategy(kelly_multiplier)`,
-  `all_in_strategy` (three staking strategies, each a function of `(initial_bankroll,
-  current_bankroll, win_probability, odds) -> stake_amount`), `simulate_session` (one sequence of
-  hands under a strategy), and `simulate_many_sessions` (the Monte Carlo layer — same idea as
-  Part 3's equity calculator, applied to bankroll trajectories instead of single hands),
-  reporting risk of ruin and mean/median final bankroll.
-- `scripts/plot_bankroll_comparison.py` — generates the two plots above via matplotlib (added as a
-  dependency specifically for this part).
-
-Run just this part's tests:
+  `all_in_strategy`, `simulate_session`, and `simulate_many_sessions` (Monte Carlo over bankroll
+  trajectories, reporting risk of ruin and mean/median final bankroll).
+- `scripts/plot_bankroll_comparison.py` — generates the two plots above via matplotlib.
 
 ```bash
 pytest tests/test_bankroll.py -v
-```
 
-Regenerate the plots:
-
-```bash
+# Regenerate the plots:
 PYTHONPATH=. python3 scripts/plot_bankroll_comparison.py
 ```
 
@@ -262,28 +229,23 @@ PYTHONPATH=. python3 scripts/plot_bankroll_comparison.py
 
 ## Part 7: Simple AI Opponents
 
-**Key insight:** every persona differs only in *which numbers* it uses to turn the same equity
-estimate into a decision — the fold/call/raise vocabulary, and the "never raise more than your
-bankroll" rule, are shared by all of them. `TightAggressiveBot` and `LoosePassiveBot` are the same
+**Key insight:** every persona differs only in *which numbers* it plugs into the same
+fold/call/raise vocabulary. `TightAggressiveBot` and `LoosePassiveBot` are the same
 `ThresholdBot` logic (fold below one equity bar, raise above another, call in between) with
-different constants plugged in — tight-aggressive folds most hands but raises big with the few it
-plays; loose-passive ("calling station") folds almost nothing but rarely raises even with a
-monster. `RandomBot` ignores equity entirely, as a control/baseline the smarter personas can be
-judged against.
+different constants — tight-aggressive folds most hands but raises big with the few it plays;
+loose-passive ("calling station") folds almost nothing but rarely raises. `RandomBot` ignores
+equity entirely, as a baseline the smarter personas are judged against.
 
-`KellyOptimalBot` is the "textbook" persona, sizing every decision straight from Part 5's Kelly
-Criterion instead of fixed heuristics — and it doesn't need to separately re-run Part 4's pot-odds
-check to decide whether to fold. Kelly's numerator (`p·b − q`) is positive exactly when calling is
-+EV under pot odds, because Part 4's breakeven equity (`bet / (pot + bet)`) and Kelly's "no edge"
-point (`1 / (b + 1)`, where `b = pot/bet`) are algebraically the same number. So for this bot,
-"Kelly recommends staking nothing" and "folding is correct" are one condition, not two — Parts 3,
-4, and 5 collapse into a single Kelly-stake calculation.
+`KellyOptimalBot` sizes every decision straight from Part 5's Kelly Criterion, and doesn't need a
+separate Part 4 pot-odds check to decide whether to fold: Kelly's numerator (`p·b − q`) is
+positive exactly when calling is +EV under pot odds, since Part 4's breakeven equity (`bet /
+(pot + bet)`) and Kelly's "no edge" point (`1 / (b + 1)`) are algebraically the same number. So
+for this bot, "Kelly recommends staking nothing" and "folding is correct" are one condition —
+Parts 3, 4, and 5 collapse into a single Kelly-stake calculation.
 
 - `poker/bots.py` — `Action` (fold/call/raise + amount), `Bot` base class (bankroll-capping +
-  `decide_from_hand`, which runs Part 3's real Monte Carlo equity calculator end-to-end),
-  `ThresholdBot` → `TightAggressiveBot` / `LoosePassiveBot`, `RandomBot`, `KellyOptimalBot`.
-
-Run just this part's tests:
+  `decide_from_hand`, running Part 3's real Monte Carlo equity calculator end-to-end),
+  `ThresholdBot` → `TightAggressiveBot`/`LoosePassiveBot`, `RandomBot`, `KellyOptimalBot`.
 
 ```bash
 pytest tests/test_bots.py -v
@@ -293,55 +255,40 @@ pytest tests/test_bots.py -v
 
 ## Part 8: Backend API (FastAPI)
 
-**Key insight:** turning the engine into a service is mostly about translation, not new logic —
-every "calculator" endpoint (`/api/equity`, `/api/ev`, `/api/kelly/*`, `/api/hand-evaluator/*`,
-`/api/bots/decide`) is a thin Pydantic-schema-in → `poker/` function call → Pydantic-schema-out
-wrapper. The one genuinely new piece is `services/game_engine.py::play_hand`, which settles a
-real hand's outcome by feeding the *realized* result (win = 1, n-way split = 1/n, loss = 0) back
-into Part 4's `ev_call` formula — the exact same call-EV math used for decision-making now
-computes the actual bankroll change too, so no separate settlement formula was needed.
+**Key insight:** turning the engine into a service is mostly translation, not new logic — every
+calculator endpoint (`/api/equity`, `/api/ev`, `/api/kelly/*`, `/api/hand-evaluator/*`,
+`/api/bots/decide`) is a thin Pydantic-in → `poker/` call → Pydantic-out wrapper. The one
+genuinely new piece is `services/game_engine.py::play_hand`, which settles a hand's outcome by
+feeding the *realized* result (win=1, split=1/n, loss=0) back into Part 4's `ev_call` — the same
+call-EV math now computes actual bankroll change too.
 
-Hero is auto-played by a fixed `KellyOptimalBot` in this part — there's no interactive UI yet for
-a human to submit a decision from (that's Part 10). `GameSession.bot_persona` is the actual named
-opponent. A hand is a single fixed-stakes decision (pot-sized bet, 1:1 odds, 50% breakeven) rather
-than a full multi-street betting engine — enough to prove deal → decide → showdown → persist
-end-to-end without building a complete rules engine this part doesn't need yet.
+Hero is auto-played by a fixed `KellyOptimalBot` in this part (no interactive UI yet — that's
+Part 10). A hand here is a single fixed-stakes decision (pot-sized bet, 1:1 odds, 50% breakeven),
+not a full multi-street engine — enough to prove deal → decide → showdown → persist end-to-end.
 
-`backend/` is a new top-level package, sibling to `poker/` (never nested inside it — `poker/`
-stays a framework-agnostic library `backend/` imports from, never the reverse):
+`backend/` is a new top-level package, sibling to `poker/` (never nested inside it):
 
-- `backend/models/` — SQLAlchemy models: `User` (minimal, `user_id` is nullable everywhere until
-  Part 9 adds real auth), `GameSession`, `HandHistory` (one row per hand; `opponent_hole_cards`
-  is only ever populated at showdown — a folded opponent's cards are never revealed, matching real
-  poker), `BankrollLog` (a dedicated append-only time series, separate from `HandHistory`
-  specifically so a Part-6-style growth chart is a plain ordered `SELECT`, not an aggregation
-  query).
-- `backend/routers/` + `backend/schemas/` — the calculator endpoints above, plus the stateful
-  `/api/game/sessions/*` endpoints (create session, play a hand, list hand history, fetch bankroll
-  history, end session). Every request schema inherits `extra='forbid'` (the Pydantic/Zod-strict
-  equivalent), and card strings are validated through `Card.from_str` at the schema layer so bad
-  notation 422s cleanly instead of 500ing inside `poker/`.
-- Rate limiting via `slowapi`: calculator endpoints (compute-only, even though POST) get a
-  100/15min "reads" bucket; `/api/game/sessions/*` writes get 50/15min — IP-based only until
-  Part 9 has a JWT to key per-user limits off.
-- **Testing runs entirely on SQLite** (`tests/backend/conftest.py` overrides FastAPI's `get_db`
-  dependency with a per-test temp-file database) — no Postgres needs to be running for `pytest` to
-  pass. Real Postgres is only used for actual local dev/run.
+- `backend/models/` — SQLAlchemy models: `User`, `GameSession`, `HandHistory` (one row per hand;
+  a folded opponent's cards are never revealed), `BankrollLog` (append-only time series, separate
+  from `HandHistory` so a growth chart is a plain ordered `SELECT`).
+- `backend/routers/` + `backend/schemas/` — calculator endpoints above, plus stateful
+  `/api/game/sessions/*` endpoints (create session, play a hand, list history, fetch bankroll
+  history, end session). Every request schema uses `extra='forbid'`; card strings validate
+  through `Card.from_str` at the schema layer, so bad notation 422s instead of 500ing.
+- Rate limiting via `slowapi`: calculator endpoints get a 100/15min "reads" bucket;
+  `/api/game/sessions/*` writes get 50/15min — IP-based until Part 9 adds JWT-keyed limits.
+- **Testing runs entirely on SQLite** (`tests/backend/conftest.py` overrides `get_db` with a
+  per-test temp-file database) — no Postgres needed for `pytest`. Real Postgres is dev/run only.
 
-Three implementation defaults were set without a full stop to ask, since each is easily revisited
-later without redoing work: **Alembic deferred** in favour of `Base.metadata.create_all()` (no
-production data to protect yet); **`User` rows are optional** in this part (`GameSession.user_id`
-nullable, no user-management endpoint — Part 9 owns signup); and the ORM/schema pairing is plain
-**SQLAlchemy + separate Pydantic schemas** (not SQLModel) and local Postgres runs via **Docker
-Desktop + docker-compose** — both confirmed with the project owner before implementation, since
-they shape a lot of downstream code and neither Docker nor Postgres was already installed on this
-machine.
+Three defaults were set without a full stop (each easily revisited later): Alembic deferred in
+favour of `Base.metadata.create_all()` (no production data to protect yet); `User` rows optional
+this part (`GameSession.user_id` nullable, Part 9 owns signup); plain SQLAlchemy + separate
+Pydantic schemas (not SQLModel), Postgres via Docker Desktop + docker-compose.
 
 ### Running it locally
 
 ```bash
-# One-time: install Docker Desktop (github.com/docker/docker-compose is bundled),
-# then from the project root:
+# One-time: install Docker Desktop, then from the project root:
 docker compose up -d          # starts Postgres on localhost:5432
 cp .env.example .env          # fill in real values if you changed docker-compose.yml
 source venv/bin/activate
@@ -350,58 +297,47 @@ uvicorn backend.main:app --reload
 # Then visit http://localhost:8000/docs for the interactive Swagger UI.
 ```
 
-Run just this part's tests (no Docker/Postgres needed):
-
 ```bash
-pytest tests/backend/ -v
+pytest tests/backend/ -v   # no Docker/Postgres needed
 ```
 
 ---
 
 ## Part 9: Authentication & Security
 
-**Key insight:** JWTs are stateless — the server never stores issued tokens anywhere; it just
-verifies the signature and expiry on each request. That's what makes `get_current_user` a single
-fast dependency with no database round trip needed to validate the token itself (only to load the
-user row it names). The whole auth layer is really just two small pieces bolted onto what Part 8
-already built: `backend/security.py` (hash/verify passwords with bcrypt, issue/decode JWTs) and one
-`Depends(get_current_user)` added to every `/api/game/sessions/*` endpoint.
+**Key insight:** JWTs are stateless — the server never stores issued tokens, only verifies
+signature and expiry per request, so `get_current_user` is a fast dependency with no DB round
+trip to validate the token itself. Auth is two pieces bolted onto Part 8: `backend/security.py`
+(bcrypt password hashing, JWT issue/decode) and `Depends(get_current_user)` on every
+`/api/game/sessions/*` endpoint.
 
-Two security details worth calling out explicitly:
-- **Login failures are indistinguishable.** An unknown email and a correct email with the wrong
-  password both return the exact same 401 + generic message — separating them would let an
-  attacker enumerate which emails have accounts.
-- **A session belonging to someone else 404s, not 403s.** Returning 403 would confirm the session
-  ID is real; 404 (session not found, full stop) leaks nothing about what exists behind the
-  ownership check, matching the project's standing "verify ownership before allowing
-  modifications" convention.
+Two security details worth calling out:
+- **Login failures are indistinguishable.** Unknown email and wrong password both return the
+  same 401 + generic message — separating them would let an attacker enumerate accounts.
+- **A session belonging to someone else 404s, not 403s** — 403 would confirm the ID is real; 404
+  leaks nothing, matching the project's "verify ownership before allowing modifications" rule.
 
-Auth endpoints (`/api/auth/signup`, `/api/auth/login`) get their own tight rate-limit bucket
-(5/15min) — separate from the general reads/writes buckets — since credential endpoints are the
-classic brute-force target. `User.starting_bankroll` (added in Part 8, unused until now) gets its
-first real use: creating a game session without specifying `starting_bankroll` falls back to the
-signed-up user's own default.
+Auth endpoints (`/api/auth/signup`, `/api/auth/login`) get a tight 5/15min rate-limit bucket,
+separate from general reads/writes — credential endpoints are the classic brute-force target.
+`User.starting_bankroll` gets its first real use: creating a session without specifying it falls
+back to the signed-up user's own default.
 
-One real bug surfaced and fixed while testing this: the `slowapi` rate limiter is a
-process-wide singleton, so without resetting it between tests, exhausting the 5/15min auth bucket
-in one test starved every later test hitting the same endpoint (all `TestClient` requests share a
-fake IP). Fixed with an `autouse` `reset_rate_limiter` fixture in `tests/backend/conftest.py`.
+One bug fixed while testing: `slowapi`'s rate limiter is a process-wide singleton, so without
+resetting it between tests, exhausting the 5/15min bucket in one test starved every later test
+hitting the same endpoint. Fixed with an `autouse` `reset_rate_limiter` fixture.
 
 - `backend/security.py` — `hash_password`/`verify_password` (bcrypt), `create_access_token`/
   `get_current_user` (PyJWT, `HS256`, configurable expiry).
-- `backend/routers/auth.py` — `POST /api/auth/signup` (creates the user, returns a token
-  immediately), `POST /api/auth/login`, `GET /api/auth/me`.
-- `backend/routers/game.py` — every endpoint now requires `Depends(get_current_user)`;
-  `_get_owned_session_or_404` enforces the ownership check described above.
-- Chose **bcrypt + PyJWT** over the brief's originally-named passlib/python-jose (both showing
-  their age maintenance-wise) and confirmed **login is required** for game sessions (not
-  optional/anonymous) with the project owner before implementation.
+- `backend/routers/auth.py` — `POST /api/auth/signup`, `POST /api/auth/login`, `GET
+  /api/auth/me`.
+- `backend/routers/game.py` — every endpoint requires `Depends(get_current_user)`;
+  `_get_owned_session_or_404` enforces ownership.
+- Chose bcrypt + PyJWT over passlib/python-jose (both showing their age); login is required for
+  game sessions (not anonymous), confirmed with the project owner before implementation.
 
-Smoke-tested end-to-end against the real Postgres container (not just SQLite tests): signup →
-`/me` → create session (defaulting bankroll correctly) → play a hand → a second user gets a clean
-404 trying to touch the first user's session → login with correct/wrong credentials.
-
-Run just this part's tests (no Docker/Postgres needed):
+Smoke-tested end-to-end against a real Postgres container: signup → `/me` → create session
+(correct default bankroll) → play a hand → a second user gets a clean 404 on the first user's
+session → login with correct/wrong credentials.
 
 ```bash
 pytest tests/backend/test_auth_router.py -v
@@ -409,43 +345,31 @@ pytest tests/backend/test_auth_router.py -v
 
 ### Security hardening pass
 
-Before moving on to Part 10, the backend was audited against every item in this project's
-standing `CLAUDE-CODE-INSTRUCTIONS.md` security checklist (translating Firebase/Next.js-specific
-items to their FastAPI/Postgres equivalents). Already-compliant: no raw SQL anywhere (ORM-only),
-no hardcoded real secrets, debug mode off, strict schema validation (`extra='forbid'`) everywhere,
-rate-limit buckets on every endpoint except `/health` (intentionally unthrottled — a trivial,
-no-DB liveness check). Five real gaps were found and fixed:
+Before Part 10, the backend was audited against this project's standing
+`CLAUDE-CODE-INSTRUCTIONS.md` security checklist (Firebase/Next.js items translated to their
+FastAPI/Postgres equivalents). Already compliant: ORM-only (no raw SQL), no hardcoded secrets,
+debug off, strict schema validation everywhere, rate limits on every endpoint except `/health`
+(intentionally unthrottled — a trivial, no-DB liveness check). Five gaps found and fixed:
 
-- **`Retry-After` was missing from 429 responses** — `slowapi`'s `Limiter` needed
-  `headers_enabled=True` explicitly. That setting has a real consequence: slowapi then tries to
-  inject rate-limit headers into *every* response, success or not, which requires each rate-limited
-  endpoint to accept a `response: Response` parameter (FastAPI's mutable response object) — added
-  to all 16 rate-limited routes.
-- **No per-user rate limiting** — only IP-based existed. Added `USER_HOURLY_LIMIT` (1000/hour),
-  stacked on top of (not instead of) the existing IP-based limits on every `/api/game/sessions/*`
-  route, keyed by `user_id_or_ip_key` (decodes the bearer token to key by user id when present,
-  falling back to IP otherwise). This protects against a single compromised/shared token being
-  used across many different source IPs — a threat IP-based limiting alone can't see.
-- **No security response headers at all** — added `backend/middleware.py`
+- **`Retry-After` missing from 429s** — `slowapi`'s `Limiter` needed `headers_enabled=True`,
+  which requires every rate-limited endpoint to accept a `response: Response` param — added to
+  all 16.
+- **No per-user rate limiting** — added `USER_HOURLY_LIMIT` (1000/hour) stacked on top of the
+  existing IP limits on `/api/game/sessions/*`, keyed by `user_id_or_ip_key` (bearer token → user
+  id, else IP). Protects against a single compromised/shared token spread across many source IPs.
+- **No security response headers** — added `backend/middleware.py`
   (`SecurityHeadersMiddleware`): `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
-  `Permissions-Policy`, `X-XSS-Protection`, `Content-Security-Policy: default-src 'none'` (this API
-  only ever returns JSON), and `Strict-Transport-Security` (harmless over local HTTP, takes effect
-  once deployed over HTTPS in Part 11).
-- **Three unbounded list fields** — `EquityRequest.board` / `BotDecideRequest.board` had no
-  `max_length` (a board is never more than 5 cards), and `CompareHandsRequest.hands` had no cap on
-  either the number of hands *or* cards per hand. All three now enforce the same bounds
-  `poker/`'s own functions expect, rejecting oversized input at the schema layer (422) instead of
-  after partial validation work.
-- **Zero logging anywhere** — failed logins vanished silently. Added stdlib `logging` (no new
-  dependency): failed login attempts and duplicate-signup attempts log the email + IP (never the
-  password), rejected tokens log the failure type (never the token itself), and rate-limit
-  breaches log the IP + path.
+  `Permissions-Policy`, `X-XSS-Protection`, `Content-Security-Policy: default-src 'none'` (JSON
+  API only), `Strict-Transport-Security`.
+- **Three unbounded list fields** — `EquityRequest.board`/`BotDecideRequest.board` had no
+  `max_length`, `CompareHandsRequest.hands` had no cap on hand/card count. All now enforce
+  `poker/`'s own bounds at the schema layer (422 instead of after partial work).
+- **Zero logging** — failed logins vanished silently. Added stdlib logging: failed
+  logins/duplicate signups log email + IP (never password), rejected tokens log failure type
+  (never the token), rate-limit breaches log IP + path.
 
-Re-verified end-to-end against the real Postgres container after the fixes: security headers
-present on a live response, gameplay still works unaffected, oversized input still 422s, and a
-6th rapid login attempt returns a real `Retry-After` value.
-
-Run just the hardening tests:
+Re-verified end-to-end after the fixes: security headers present on a live response, gameplay
+unaffected, oversized input still 422s, a 6th rapid login returns a real `Retry-After`.
 
 ```bash
 pytest tests/backend/test_security_hardening.py -v
@@ -455,92 +379,68 @@ pytest tests/backend/test_security_hardening.py -v
 
 ## Part 10: Frontend (React)
 
-**Key insight:** the backend built in Parts 8-9 couldn't actually be *played* yet — `play_hand`
-auto-decided hero's fold/call/raise with a hardcoded `KellyOptimalBot`, because there was no UI to
-ask a real human. The brief's "poker table UI to play hands **against** the AI opponents" meant a
-real person had to make the decision, which meant a backend change was needed before any frontend
-code: `services/game_engine.py::play_hand` was split into `deal_hand` (deals hero's cards, computes
-equity and the live Kelly-recommended stake, returns them, hand stays *pending*) and `resolve_hand`
-(takes the human's real fold/call/raise decision and settles it — everything downstream of that
-point is unchanged from Part 8/9's logic). Two new **internal-only** columns
-(`dealt_board_cards`, `dealt_opponent_hole_cards` on `HandHistory`) remember what was actually
-dealt across the two separate HTTP requests this now takes; they're never declared in
-`HandHistoryResponse`, so the secret state a human hasn't earned the right to see yet (by calling
-or raising) is structurally unreachable through the API, not just policy-hidden.
+**Key insight:** the backend from Parts 8-9 couldn't actually be *played* — `play_hand`
+auto-decided hero's action with a hardcoded bot, since there was no UI to ask a human. Before any
+frontend code, `services/game_engine.py::play_hand` was split into `deal_hand` (deals hero's
+cards, computes equity and live Kelly stake, hand stays pending) and `resolve_hand` (settles the
+human's real decision — everything downstream is unchanged from Part 8/9). Two new
+internal-only columns (`dealt_board_cards`, `dealt_opponent_hole_cards` on `HandHistory`)
+remember what was dealt across the two separate requests this now takes; neither is ever declared
+in `HandHistoryResponse`, so a human hasn't structurally earned the right to see them yet.
 
 `GET /api/game/sessions/{id}/hands/pending` lets the frontend recover a hand-in-progress after a
-page refresh — verified live: refreshing mid-decision reloads the exact same hole cards and
-equity rather than losing the hand or silently redealing.
+refresh — verified live: refreshing mid-decision reloads the same hole cards and equity rather
+than losing or silently redealing the hand.
 
 ### Stack
 
-Plain React (not Next.js — the brief's explicit choice for this project) + Vite + JavaScript +
-Tailwind CSS v4 + shadcn/ui (Radix base, Nova preset) + `react-router-dom` + Recharts (via
-shadcn's `chart.jsx` wrapper) + Vitest + React Testing Library — matching the standing
-conventions in `CODING-PREFERENCES.md` wherever they're stack-agnostic (kebab-case files,
-`cn()`, functional components, hooks in `hooks/`) and translating the Next.js-specific ones
-(ESLint's `next/core-web-vitals` → the Vite-appropriate plugin set; modern `npm create vite`
-scaffolds now ship `oxlint`, a faster Rust-based linter, in place of ESLint by default — kept as
-scaffolded rather than fighting current tooling).
+Plain React (not Next.js, per the brief) + Vite + JavaScript + Tailwind CSS v4 + shadcn/ui (Radix
+base, Nova preset) + `react-router-dom` + Recharts (via shadcn's `chart.jsx`) + Vitest + React
+Testing Library — following the project's standing conventions wherever stack-agnostic
+(kebab-case files, `cn()`, functional components, hooks in `hooks/`), translating Next.js-specific
+ones (ESLint → `oxlint`, the faster Rust-based linter Vite scaffolds by default).
 
 ### What's built
 
-- **Auth** — `lib/api-client.js` (fetch-based, no axios; handles 401 → clear token + redirect,
-  422 → flattens FastAPI's validation error shape, 429 → surfaces the `Retry-After` header from
-  Part 9's hardening pass), `context/auth-context.jsx` + `hooks/use-auth.js`, login/signup pages,
-  `ProtectedRoute`.
-- **Lobby & session setup** — there's no "list my sessions" backend endpoint (never needed one
-  before Part 10), so resuming a session is done client-side: the last-created session id is
-  remembered in `localStorage` and checked against `GET /sessions/{id}` on load — same-browser
-  only, but avoids expanding backend scope just for this.
+- **Auth** — `lib/api-client.js` (fetch-based, no axios; 401 → clear token + redirect, 422 →
+  flattens FastAPI's validation error shape, 429 → surfaces `Retry-After`),
+  `context/auth-context.jsx` + `hooks/use-auth.js`, login/signup pages, `ProtectedRoute`.
+- **Lobby & session setup** — no "list my sessions" backend endpoint, so resuming a session is
+  client-side: the last-created session id lives in `localStorage`, checked against `GET
+  /sessions/{id}` on load (same-browser only, avoids expanding backend scope).
 - **Interactive poker table** (`components/poker/poker-table.jsx`) — a 3-stage state machine
-  (idle → dealt/awaiting decision → resolved) driven by the pending-hand endpoint. The
-  Kelly-recommended stake is shown live next to the equity it's derived from; the raise input is
-  pre-filled with that suggestion **floored at the minimum valid raise** — a real bug caught during
-  manual browser testing, since Kelly can legitimately recommend staking *less* than a call
-  (exactly the "call, don't raise" zone), which had been pre-filling the raise field with a
-  guaranteed-invalid number.
-- **Dashboard** — bankroll growth chart, win-rate KPI tiles + stacked bar, hand history table. Ran
-  the `dataviz` skill before building these: the bankroll line uses one consistent color (never
-  diverging red/green by magnitude — the signed delta lives in a separate stat tile instead), and
-  win/loss/split/fold use status tokens (green/red/neutral/amber) rather than arbitrary
-  categorical hues, since they mean good/bad/neutral outcomes, not unordered categories.
-  **Also caught live**: the shadcn Nova preset's `--chart-1` token is a near-white grayscale value
-  (this preset's chart palette is monochrome by design, meant for multi-series charts) — using it
-  for a single highlighted line made the bankroll chart nearly invisible. Fixed with an explicit
-  visible blue (`#2a78d6` light / `#3987e5` dark) instead of the theme token.
+  (idle → awaiting decision → resolved) driven by the pending-hand endpoint. The Kelly-recommended
+  stake shows live next to the equity it's derived from; the raise input pre-fills with that
+  suggestion floored at the minimum valid raise — a real bug caught in manual testing, since Kelly
+  can recommend staking *less* than a call, which had pre-filled a guaranteed-invalid number.
+- **Dashboard** — bankroll growth chart, win-rate KPI tiles + stacked bar, hand history table.
+  Built with the `dataviz` skill: the bankroll line uses one consistent color (signed delta lives
+  in a separate stat tile, not diverging red/green by magnitude); win/loss/split/fold use
+  status tokens (green/red/neutral/amber). **Caught live**: shadcn's Nova preset `--chart-1` is
+  near-white grayscale (that palette is meant for multi-series charts), making a single
+  highlighted line nearly invisible — fixed with an explicit blue (`#2a78d6` light / `#3987e5`
+  dark) instead of the theme token.
 
 ### Testing
 
 Vitest + React Testing Library, no Playwright/E2E yet (deferred to Part 11, once there's a real
-deployed URL to point it at rather than orchestrating two local dev servers just for this part).
-28 tests: the API client's auth/401/422/429 handling, the auth context, protected-route
-redirects, the poker table's full state-machine transitions against a mocked API client, action
-validation, and the two pure aggregation functions (`compute-win-rate.js`,
-`compute-bankroll-series.js`) tested directly rather than only through chart components (Recharts'
-SVG output is brittle to assert against under jsdom — the logic that can actually be wrong is
-tested directly instead).
+deployed URL). 28 tests: API client auth/401/422/429 handling, auth context, protected-route
+redirects, the poker table's full state-machine against a mocked API client, action validation,
+and two pure aggregation functions (`compute-win-rate.js`, `compute-bankroll-series.js`) tested
+directly rather than only through chart components (Recharts' SVG output is brittle under jsdom).
 
-One environment quirk worth noting: this Node version ships a native (but non-functional without
-a backing file) `localStorage` global that shadows jsdom's own implementation, breaking any test
-that touches `localStorage`. Fixed by passing `NODE_OPTIONS="--localstorage-file=..."` in the
-`test` npm script.
+One environment quirk: this Node version ships a native but non-functional `localStorage` global
+that shadows jsdom's own, breaking any test touching it — fixed via
+`NODE_OPTIONS="--localstorage-file=..."` in the `test` npm script.
 
-Smoke-tested end-to-end in a real browser against the live Postgres-backed API: signup → create
-session → deal a hand → fold (bankroll unchanged, cards hidden) → deal again → call → showdown
-(board + opponent cards revealed, bankroll updated correctly) → dashboard showing accurate win
-rate and a correctly-colored bankroll growth line.
-
-Run just this part's tests:
+Smoke-tested end-to-end in a real browser against the live API: signup → create session → deal →
+fold (bankroll unchanged, cards hidden) → deal again → call → showdown (board + opponent cards
+revealed, bankroll updated) → dashboard showing accurate win rate and a correctly-colored chart.
 
 ```bash
-cd frontend
-npm run test
-```
+cd frontend && npm run test
 
-Run the frontend locally (with the backend already running per Part 8's setup):
-
-```bash
+# Run locally (backend already running per Part 8):
 cd frontend
 cp .env.example .env
 npm install
@@ -552,150 +452,120 @@ npm run dev
 
 ## Part 11: Deployment
 
-**Key insight:** the two services deploy independently — the backend to Render (as a Docker
-container, since that's portable to any host and mirrors exactly what runs locally), the frontend
-to Vercel (via its own native Vite build, no Docker needed there) — but they have a real
-chicken-and-egg dependency on each other's URL: the frontend needs the backend's URL to call it
-(`VITE_API_BASE_URL`), and the backend needs the frontend's URL to allow it (`CORS_ALLOWED_ORIGINS`).
-Neither exists until the other is deployed once, so going live takes two passes, not one — the
-runbook below is written in the order that actually resolves this, not the order you might
-naively guess.
+**Key insight:** the two services deploy independently — backend to Render (Docker container,
+portable, mirrors local exactly), frontend to Vercel (native Vite build) — but have a real
+chicken-and-egg dependency: the frontend needs the backend's URL (`VITE_API_BASE_URL`), the
+backend needs the frontend's URL (`CORS_ALLOWED_ORIGINS`). Neither exists until the other is
+deployed once, so going live takes two passes.
 
-This part adds no application code — only deployment configuration
-(`Dockerfile`, `.dockerignore`, `render.yaml`, `frontend/vercel.json`) and CI
-(`.github/workflows/ci.yml`, mirroring `.pre-commit-config.yaml`'s three checks exactly so local
-and CI enforcement never drift apart). The Dockerfile was built and run locally before ever being
-pointed at Render — confirmed it serves `/health` with no live database connection (by design;
-`/health` deliberately has no DB dependency, see Part 8) and correctly picks up a runtime-injected
-`$PORT`, exactly how Render's platform behaves.
+This part adds no application code, only deployment config (`Dockerfile`, `.dockerignore`,
+`render.yaml`, `frontend/vercel.json`) and CI (`.github/workflows/ci.yml`, mirroring
+`.pre-commit-config.yaml`'s three checks so local and CI enforcement never drift). The Dockerfile
+was built and run locally first — confirmed it serves `/health` with no live DB connection (by
+design) and picks up a runtime-injected `$PORT`, matching Render's behavior.
 
 ### Usage (once deployed)
 
 Visit the Vercel URL, sign up, start a session (pick an opponent persona and starting bankroll),
-and play: deal a hand, see your equity and the live Kelly-recommended stake, fold/call/raise, see
-the resolution, check the dashboard for bankroll growth and win rate. **First request after 15
-minutes of inactivity will be slow (10-30s)** — Render's free tier spins the backend down when
-idle and cold-starts it on the next request. This is expected, not a bug.
+and play: deal a hand, see equity and the live Kelly-recommended stake, fold/call/raise, see the
+resolution, check the dashboard for bankroll growth and win rate. First request after 15 minutes
+of inactivity is slow (10-30s) — Render's free tier cold-starts on idle. Expected, not a bug.
 
 ### Testing
-
-Nothing new to run beyond what Parts 8-10 already established:
 
 ```bash
 pytest -q                                    # 182 tests, no Postgres needed (SQLite-backed)
 cd frontend && npm run lint && npm run test && npm run build   # 28 tests + production build
-pre-commit run --all-files                   # all three checks, exactly what CI now also runs
+pre-commit run --all-files                   # all three checks, same as CI
 ```
 
-`.github/workflows/ci.yml` runs the same three checks (pytest, oxlint, vitest — plus a production
-build) automatically on every push and on every PR targeting `main`, closing the "no CI" gap
-found in this project's own compliance audit and giving real signal on PRs going forward (this
-part is the first to open one, rather than pushing straight to `main` — see `tasks/lessons.md`).
+`.github/workflows/ci.yml` runs the same three checks on every push and PR targeting `main`.
 
 ### Deployment runbook
 
-Deliberately **not** something I can do for you — creating the Render/Vercel accounts and
-clicking through their dashboards needs your own browser session and credentials. Everything
-below is prepared and verified; these are the steps to actually go live.
+Creating the Render/Vercel accounts needs your own browser session and credentials, so this part
+is prepared and verified but not something that runs itself. Steps to go live:
 
-1. **Merge this PR** (or work from the `feature/part-11-deployment` branch directly if you want
-   to deploy before merging — Render/Vercel can both point at a specific branch).
+1. **Merge this PR** (or deploy from the feature branch directly — Render/Vercel can point at a
+   specific branch).
 
-2. **Supabase — database.** Postgres is hosted on Supabase, not Render's own database — Render's
-   free Postgres tier deletes the whole database (not just pauses it) after 30 days; Supabase's
-   free tier only pauses on inactivity and resumes with one manual click in its dashboard, no
-   recreating tables from scratch every month. Create a free project at
-   [supabase.com](https://supabase.com), then grab its connection string from **Project Settings →
-   Database → Connection string → URI** — you'll need it in the next step.
+2. **Supabase — database.** Postgres is hosted on Supabase, not Render's own (Render's free tier
+   deletes the whole database after 30 days; Supabase's free tier only pauses, resuming with one
+   dashboard click). Create a free project at [supabase.com](https://supabase.com), grab its
+   connection string from **Project Settings → Database → Connection string → URI**.
 
-3. **Render — backend.** Dashboard → **New → Blueprint** → connect this GitHub repo. Render reads
-   `render.yaml` and prompts for two `sync: false` values:
+3. **Render — backend.** Dashboard → **New → Blueprint** → connect this repo. Render reads
+   `render.yaml` and prompts for:
    - `DATABASE_URL` — the Supabase connection string from step 2.
    - `JWT_SECRET_KEY` — generate your own, don't reuse the local dev default:
      ```bash
      python3 -c "import secrets; print(secrets.token_hex(32))"
      ```
-   Deploy the Blueprint. Note the resulting URL, e.g. `https://kelly-poker-backend.onrender.com`.
+   Deploy the Blueprint and note the resulting URL (this project's live backend:
+   `https://kelly-poker-backend.onrender.com`).
 
-4. **Stand up the production schema.** Still no Alembic (deliberately deferred since Part 8) —
-   `create_all()` is additive and safe to run once. Since the database is externally reachable
-   (Supabase, not Render's Shell-gated Postgres), run this directly from your own machine:
+4. **Stand up the production schema.** Still no Alembic — `create_all()` is additive and safe to
+   run once, directly against the externally-reachable Supabase database:
    ```bash
    DATABASE_URL="<your Supabase connection string>" PYTHONPATH=. python3 backend/create_tables.py
    ```
 
-5. **Vercel — frontend.** Dashboard → **Add New → Project** → import this GitHub repo → set
-   **Root Directory** to `frontend` (this is a monorepo) → add an environment variable
-   `VITE_API_BASE_URL` = `https://kelly-poker-backend.onrender.com/api` (your real Render URL +
-   `/api`) → Deploy. Note the resulting URL, e.g. `https://kelly-poker-simulator.vercel.app`.
+5. **Vercel — frontend.** Dashboard → **Add New → Project** → import this repo → set **Root
+   Directory** to `frontend` (monorepo) → add env var `VITE_API_BASE_URL` = your Render URL +
+   `/api` → Deploy. This project's live frontend:
+   `https://project-3-kelly-poker-simulator.vercel.app`.
 
-6. **Close the loop.** Back in Render, edit the web service's `CORS_ALLOWED_ORIGINS` env var to
-   your real Vercel URL from step 5 (comma-separate if you need more than one, e.g. a Vercel
-   preview URL too). Render redeploys automatically on env var change.
+6. **Close the loop.** Back in Render, set `CORS_ALLOWED_ORIGINS` to your real Vercel URL from
+   step 5 (comma-separate for more than one, e.g. a preview URL too). Render redeploys
+   automatically on env var change.
 
 7. **Smoke test the live URL:** sign up, start a session, deal a hand, act on it, check the
-   dashboard — the same flow verified locally in Part 10.
+   dashboard.
 
-**Free-tier caveats** (verify current terms before relying on these long-term — they change):
-Supabase's free project pauses after a period of inactivity and needs one manual "restore" click
-in its dashboard before it'll accept connections again; Render's free web service cold-starts
-after ~15 min idle (see Usage above); Vercel's Hobby tier is free but non-commercial/single-developer
-only. All fine for a portfolio demo link — upgrade the specific tier that matters if this needs to
-stay reliably live.
+**Free-tier caveats** (verify current terms before relying on these long-term): Supabase's free
+project pauses on inactivity and needs a manual "restore" click before it accepts connections
+again; Render's free web service cold-starts after ~15 min idle; Vercel's Hobby tier is
+non-commercial/single-developer only. All fine for a portfolio demo — upgrade whichever tier
+matters if this needs to stay reliably live.
 
 ---
 
 ## Part 12: Real Poker Engine (multi-street, multi-opponent, side pots)
 
 **Why this part exists:** Parts 8-10 deliberately simplified the game to one fixed $100 pot/bet,
-exactly one opponent, and one hero decision resolving the entire hand instantly (the full board
-dealt upfront) — enough to prove the deal → decide → resolve pipeline end-to-end without building
-a full poker engine before there was a UI to use it. Part 12 replaces that with the real thing:
-blinds, no-limit betting with side pots, 1-4 opponents drawn from an expanded 10-persona roster,
-and a genuine flop → turn → river progression with a betting round after each street. This is a
-large, multi-phase expansion — built and shipped incrementally, same pattern as Parts 1-11, not in
-one pass. Each phase gets its own branch/PR.
+one opponent, and one hero decision resolving the whole hand instantly — enough to prove the
+pipeline end-to-end before a UI existed. Part 12 replaces that with the real thing: blinds,
+no-limit betting with side pots, 1-4 opponents from an expanded 10-persona roster, and a genuine
+flop → turn → river progression with a betting round per street. Built and shipped incrementally,
+same pattern as Parts 1-11 — each phase its own branch/PR.
 
-**Key insight (this phase):** side-pot math only ever needs one number per player — their total
-contribution to the hand (`committed_total`) — and whether they folded. It doesn't care about
-streets, bet sizes, or turn order at all. Sort the distinct contribution levels, and each gap
-between consecutive levels is one pot "layer": its size is `(gap × number of players who reached
-at least that level)`, and only non-folded players who reached that level are eligible to win it.
-A worked example proves this out: three players all-in for $50/$120/$200 (no folds) splits into a
-$150 main pot (all three eligible), a $140 side pot (the $120/$200 players), and an $80 side pot
-(only the $200 player — wins it uncontested, even though they might not have the best hand overall
-against players eligible for the bigger main pot). Checksum: `150+140+80 = 370 = 50+120+200`.
+**Key insight:** side-pot math only needs one number per player — their total contribution
+(`committed_total`) — and whether they folded. Sort the distinct contribution levels; each gap
+between levels is one pot "layer," sized `(gap × players who reached that level)`, eligible to
+non-folded players who reached it. Worked example: three players all-in for $50/$120/$200 splits
+into a $150 main pot (all three eligible), a $140 side pot, and an $80 side pot (only the $200
+player, uncontested). Checksum: `150+140+80 = 370 = 50+120+200`.
 
-A second, smaller trick: the human-facing 5-verb vocabulary (fold/check/call/bet/raise) collapses
-to just 3 engine primitives — `fold` / `match` / `raise_to`. Check is "match a bet of $0"; bet is
-"raise from a bet of $0." One comparison (amount vs. `current_bet`) validates any action; the
-friendlier verbs are a label added at the API layer later, not a second implementation.
+A second trick: the human-facing 5-verb vocabulary (fold/check/call/bet/raise) collapses to 3
+engine primitives — `fold`/`match`/`raise_to`. Check is "match a bet of $0"; bet is "raise from
+$0." One comparison validates any action; friendlier verbs are just an API-layer label.
 
-### Phase 1 (this commit): `poker/betting.py` — pure Python, no DB/HTTP
+### Phase 1: `poker/betting.py` — pure Python, no DB/HTTP
 
-Same pattern as every other `poker/` module: built and fully unit-tested standalone before
-anything touches a database or an endpoint (exactly how `hand_evaluator.py` was built and tested
-in Part 2, long before Part 8 ever wired it into a router).
+Built and unit-tested standalone before touching a database or endpoint, same pattern as every
+`poker/` module.
 
-- `PlayerState` — per-seat mutable state (`stack`, `committed_street`, `committed_total`,
-  `status`). One `.commit(amount)` method keeps `committed_street` (this street only) and
-  `committed_total` (the whole hand) in sync, so they can never drift apart.
-- `BettingRound` — one street's betting for N players. `legal_action_bounds(seat)` returns exactly
-  what a client needs to validate a decision before submitting it (call amount, min/max legal
-  raise); `apply(seat, action, raise_to)` validates and applies `fold`/`match`/`raise_to`,
-  correctly reopening the action for everyone else on a raise (including an undersized all-in —
-  official poker's "doesn't reopen action" exception for that specific case isn't implemented,
-  a deliberate simplification, flagged in the class docstring).
-- `refund_uncalled_bet()` — a required correctness step, not an edge case: when a street closes
-  with nobody matching the largest bet (everyone folded to it, or the rest are all-in for less),
-  the excess gets refunded before pots are built. Without this, chip totals silently don't balance
-  and a pot layer can end up with no eligible winners.
-- `build_pots(players)` / `award_pots(pots, hands)` — the side-pot layering algorithm above, and
-  awarding each layer by reusing `poker/hand_evaluator.py`'s existing `compare_hands` **unchanged**
-  — it already returns N-way winner indices, exactly what a contested layer needs. A layer with
-  only one eligible seat is awarded directly, no hand comparison necessary.
-
-Run just this part's tests:
+- `PlayerState` — per-seat state (`stack`, `committed_street`, `committed_total`, `status`).
+  `.commit(amount)` keeps street/total in sync.
+- `BettingRound` — one street's betting for N players. `legal_action_bounds(seat)` gives call
+  amount and min/max raise; `apply(seat, action, raise_to)` validates and applies
+  `fold`/`match`/`raise_to`, reopening action correctly on a raise (an undersized all-in doesn't
+  reopen action for others — official poker's exception, deliberately not implemented, flagged
+  in the docstring).
+- `refund_uncalled_bet()` — refunds the excess when a street closes with nobody matching the
+  largest bet, so chip totals stay balanced and no pot layer ends up with zero eligible winners.
+- `build_pots(players)`/`award_pots(pots, hands)` — the side-pot algorithm above, reusing
+  `poker/hand_evaluator.py`'s `compare_hands` unchanged to award each contested layer.
 
 ```bash
 pytest tests/test_betting.py -v
@@ -703,29 +573,20 @@ pytest tests/test_betting.py -v
 
 ### Phase 2: `poker/hand_flow.py` — the orchestrator
 
-Ties Phase 1's betting engine to real bot decisions across a full hand, still pure Python — no
-DB/HTTP yet.
+Ties Phase 1's betting engine to real bot decisions across a full hand, still pure Python.
 
-- `create_hand(...)` — deals hole cards to hero + 1-4 opponents, rotates the button by hand number
-  (uniform N-player rule, including heads-up — no special heads-up button treatment, a deliberate
-  simplification), and posts blinds.
+- `create_hand(...)` — deals hole cards to hero + 1-4 opponents, rotates the button by hand
+  number (uniform rule, including heads-up), posts blinds.
 - `advance_hand(state, decide_bot_action)` — loops resolving bot turns and street transitions
-  (dealing the next street, refunding an uncalled bet, opening a fresh `BettingRound`) until either
-  it's hero's turn or the hand is complete. This loop is the resumability boundary an HTTP request
-  will need later, since hero now acts across multiple separate requests instead of one.
-- `apply_hero_action(state, action, raise_to)` — applies hero's one fold/call/raise decision;
-  the caller runs `advance_hand` again afterward for whatever follows.
-- `default_bot_action` — translates `poker/bots.py`'s fold/call/raise vocabulary into the engine's
-  fold/match/raise_to primitives: recomputes each bot's live opponent count fresh every decision,
-  suppresses folding when checking is free, and clamps a bot's proposed raise against
-  `legal_action_bounds` (below the minimum legal raise becomes a call, above the stack is capped at
-  all-in). `poker/bots.py` itself needed **no interface change** — this translation lives entirely
-  in the orchestrator.
-- A fold-out (everyone else folds) and a genuine multi-way showdown are resolved by the exact same
-  function — `build_pots`/`award_pots` already handle a single eligible seat as a trivial one-seat
-  pot, so there's no separate "everyone folded" code path to get wrong.
-
-Run just this part's tests:
+  until it's hero's turn or the hand is complete — the resumability boundary an HTTP request
+  needs, since hero now acts across multiple requests.
+- `apply_hero_action(state, action, raise_to)` — applies hero's decision; caller re-runs
+  `advance_hand` afterward.
+- `default_bot_action` — translates `poker/bots.py`'s vocabulary into fold/match/raise_to:
+  recomputes live opponent count each decision, suppresses folding when checking is free, clamps
+  a bot's raise against `legal_action_bounds`. `poker/bots.py` itself needed no interface change.
+- A fold-out and a genuine showdown resolve through the same function — `build_pots`/`award_pots`
+  already handle a single eligible seat as a trivial one-seat pot.
 
 ```bash
 pytest tests/test_hand_flow.py -v
@@ -733,9 +594,8 @@ pytest tests/test_hand_flow.py -v
 
 ### Phase 3: `poker/bots.py` — 10 opponent personas
 
-Expands the original 4 personas to 10, all reusing the existing `ThresholdBot(fold_below,
-raise_above, raise_sizing)` base **unchanged** — every new persona is just a different set of
-threshold values plugged into logic that already existed, not new decision logic:
+Expands 4 personas to 10, all reusing `ThresholdBot(fold_below, raise_above, raise_sizing)`
+unchanged — every new persona is just different threshold values:
 
 | Persona | fold_below | raise_above | raise_sizing |
 |---|---|---|---|
@@ -750,12 +610,8 @@ threshold values plugged into logic that already existed, not new decision logic
 | Random | — | — | — |
 | Kelly-Optimal | — | — | — |
 
-`assign_opponent_personas(num_opponents, rng)` samples `num_opponents` distinct personas out of
-all 10 (every persona, including Random and Kelly-Optimal, is eligible) — one per opponent seat,
-no repeats within a table. Takes an explicit `random.Random` instance so callers control
-reproducibility.
-
-Run just this part's tests:
+`assign_opponent_personas(num_opponents, rng)` samples distinct personas per opponent seat (any
+of the 10 eligible, no repeats), taking an explicit `random.Random` for reproducibility.
 
 ```bash
 pytest tests/test_bots.py -v
@@ -763,110 +619,76 @@ pytest tests/test_bots.py -v
 
 ### Phase 4: database schema for multi-street, multi-opponent hands
 
-Three new tables, all purely additive (safe under `create_tables.py`'s existing `create_all()` --
-no data loss risk, no manual step needed for a fresh database):
+Three new tables, purely additive (safe under `create_tables.py`'s `create_all()`):
 
-- **`game_session_opponents`** — one row per opponent seat's persona, fixed for the life of a
-  session. Replaces the old single `bot_persona` column, which structurally can't hold 1-4
-  opponents.
-- **`hand_players`** — one row per seat per hand (hero + each opponent): starting/final stack,
-  fold/all-in status, net result, and **real hole cards for every seat, always** — the redaction
-  mechanism changes here. Part 10's "hidden column" pattern (don't store the opponent's cards until
-  they're allowed to be seen) doesn't scale to 5 seats × 4 streets; instead, cards are always
-  stored real, and a seat's cards are only ever *serialized* once it's earned the right to be seen
-  (won't be, until the response-schema layer is built in Phase 5). Same guarantee, cleaner
-  mechanism for N seats.
-- **`hand_actions`** — the full replayable action log (street, seat, action, amount, running pot
-  size), reusing `poker.betting.BettingAction`'s own vocabulary directly rather than inventing a
-  second one. This is what Phase 6's frontend will animate through, street by street, even when a
-  single API response resolves several streets at once (e.g. hero calls all-in preflop). Hero's own
-  `equity_at_decision`/`kelly_recommended_stake` move here too, now that a decision happens once
-  per street rather than once per hand.
+- **`game_session_opponents`** — one row per opponent seat's persona, replacing the old single
+  `bot_persona` column which couldn't hold 1-4 opponents.
+- **`hand_players`** — one row per seat per hand: stacks, fold/all-in status, net result, and
+  real hole cards for every seat, always. Redaction moved from storage to serialization — cards
+  are always stored real, only ever *shown* once a seat has earned the right (built in Phase 5).
+- **`hand_actions`** — full replayable action log (street, seat, action, amount, running pot
+  size), reusing `poker.betting.BettingAction`'s vocabulary directly. What Phase 6's frontend
+  animates through, street by street. Hero's `equity_at_decision`/`kelly_recommended_stake` move
+  here too, since a decision now happens per street, not per hand.
 
-Two small nullable columns land on the *existing* `game_sessions` (`num_opponents`, `small_blind`,
-`big_blind`) and `hand_histories` (`button_seat`, `street`) tables — safe for a fresh database, but
-**not** something `create_all()` can add to an already-live table with real rows in it (it only
-creates missing tables, never alters existing ones). That's a genuine manual step against the live
-production database — see `backend/migrations/README.md` for exactly when/how to run it, done
-deliberately before Phase 5 needs those columns, not bundled silently into this commit.
+Two small nullable columns land on the existing `game_sessions`/`hand_histories` tables — safe
+for a fresh database, but a genuine manual migration step against the live production database
+(see `backend/migrations/README.md`), run deliberately before Phase 5 needs them.
 
-`GameSession.bot_persona` and `HandHistory`'s single-opponent card columns are left untouched
-(vestigial for new sessions, still valid for old ones) rather than dropped — a deliberate
-simplification from the Part 12 plan; that cleanup is its own future step, not part of this one.
+`GameSession.bot_persona` and the old single-opponent card columns are left untouched (vestigial
+for new sessions, still valid for old ones) — cleanup is a future step, not part of this one.
 
 ### Phase 5a: backend wiring (heads-up-focused)
 
-Rewrites `backend/services/game_engine.py` and `backend/routers/game.py` on top of
-`poker/hand_flow.py`, replacing Parts 8-10's single fixed-pot/one-opponent model. A real hand now
-spans multiple separate HTTP requests (deal, then one or more acts), so `HandState` can't just live
-in a Python variable between them the way `poker/hand_flow.py`'s own tests do it in one continuous
-process.
+Rewrites `backend/services/game_engine.py` and `backend/routers/game.py` on `poker/hand_flow.py`,
+replacing the single fixed-pot/one-opponent model. A hand now spans multiple HTTP requests, so
+`HandState` can't just live in a Python variable between them.
 
-- `POST /sessions` takes `num_opponents` (1-4), `small_blind`/`big_blind` instead of `bot_persona`
-  — personas are randomly assigned per opponent seat via `assign_opponent_personas` and stored in
-  the new `game_session_opponents` table. Bots get a randomized per-hand stack (50-150 big blinds
-  originally; scaled off hero's own bankroll as of Part 13 Phase 2), reset every hand — only hero's
-  `current_bankroll` persists across hands.
-- Two small but load-bearing changes to already-merged Phase 1/2 code, both re-verified against
-  their full existing test suites afterward: `poker/hand_flow.py` now deals the whole 5-card board
-  once, upfront (`HandState.board` is a property slicing it by street) rather than street-by-street
-  — behaviorally identical for a given seed (a shuffled deck's outcome is fixed at shuffle time
-  either way), but it means nothing needs to hold a live, mutating `Deck` object past hand creation.
-  `poker/betting.py`'s `BettingAction` now carries `pot_size_after`, computed at the moment of the
-  action from the same `BettingRound` that's already tracking every seat's `committed_total`.
-- `poker.hand_flow.rebuild_hand_state` (new) reconstructs a hand's `HandState` purely from
-  already-persisted plain data (hole cards, the fixed board, and the action log so far) by
-  *replaying* it through the same `BettingRound`/`_advance_street` primitives that originally
-  produced it — proven, via its own test, to resume a hand to an outcome byte-identical to never
-  having paused at all.
-- Redaction now happens at response-assembly time, not in storage: `HandPlayer.hole_cards` is
-  always the real cards for every seat; a seat's cards are only ever serialized once it's earned
-  the right to be seen (always hero's own, everyone's at a genuine multi-way showdown, nobody's at
-  a fold-out).
-- A real, subtle bug surfaced and got fixed here (see `tasks/lessons.md` for the full account):
-  reconstructing a hand's state and immediately applying hero's next action isn't quite enough —
-  nothing gets recorded for a fresh street until someone actually acts on it, so reconstruction
-  alone can land one `advance_hand` cascade behind where the hand actually is. `_load_and_sync_state`
-  fixes this by completing (and immediately persisting) that catch-up step before anything else
-  happens — critical since bot decisions use live, unseeded equity, so silently discarding an
-  unpersisted catch-up could resolve the same bot turn differently on a second read.
-
-Run just this part's tests:
+- `POST /sessions` takes `num_opponents` (1-4), `small_blind`/`big_blind` — personas assigned
+  randomly via `assign_opponent_personas`, stored in `game_session_opponents`. Bots get a
+  randomized per-hand stack, reset every hand — only hero's `current_bankroll` persists.
+- Two load-bearing changes to already-merged Phase 1/2 code (re-verified against their full test
+  suites): `hand_flow.py` now deals the whole 5-card board upfront (`HandState.board` slices it
+  by street) — behaviorally identical for a given seed, but nothing needs a live mutating `Deck`
+  past hand creation. `betting.py`'s `BettingAction` now carries `pot_size_after`.
+- `poker.hand_flow.rebuild_hand_state` (new) reconstructs a hand's state purely from persisted
+  data by *replaying* it through the same primitives that produced it — proven byte-identical to
+  never having paused.
+- Redaction happens at response-assembly time: `HandPlayer.hole_cards` is always real; a seat's
+  cards serialize only once earned (hero's own always, everyone's at a genuine showdown, nobody's
+  at a fold-out).
+- A subtle bug fixed here (full account in `tasks/lessons.md`): reconstructing state and
+  immediately applying hero's next action isn't enough — nothing records for a fresh street until
+  someone acts on it, so reconstruction alone can land one cascade behind. `_load_and_sync_state`
+  completes and persists that catch-up first — critical since bot decisions use live, unseeded
+  equity, so silently discarding an unpersisted catch-up could resolve a bot turn differently on
+  a second read.
 
 ```bash
 pytest tests/backend/test_game_router.py -v
 ```
 
-**Manual step still needed before this is usable against the live production database:** run
-`backend/migrations/run_migrations.py` against it (see `backend/migrations/README.md`) — the new
-`num_opponents`/`small_blind`/`big_blind`/`button_seat`/`street` columns don't exist on the
-already-live `game_sessions`/`hand_histories` tables until that's done.
+**Manual step still needed on the live production database:** run
+`backend/migrations/run_migrations.py` (see `backend/migrations/README.md`) — the new columns
+don't exist on the already-live tables until then.
 
 ### Phase 5b: multi-way side-pot testing through the API
 
-Proves a genuine multi-layer side pot (not just a single equal-stack main pot) can actually form
-and resolve end-to-end through the HTTP API — deal → hero shoves all-in → persistence →
-reconstruction → showdown — building on Phase 5a's general-purpose wiring rather than changing it.
+Proves a genuine multi-layer side pot forms and resolves end-to-end through the HTTP API — deal →
+hero shoves all-in → persistence → reconstruction → showdown.
 
-Bot stacks are randomized per hand and not directly controllable through the API, and bots decide
-with live, unseeded equity, so a specific side-pot shape can't be forced deterministically in one
-shot. The test instead gives hero an enormous stack (so any calling bot is guaranteed to go all-in
-for less than hero's raise), shoves preflop every hand, and retries fresh sessions/seeds until at
-least two *different*-starting-stack opponents are both observed all-in at showdown — proof a real
-layered split ran, not just a single pot.
+Bot stacks are randomized and not directly controllable, and bots decide with live, unseeded
+equity, so a specific side-pot shape can't be forced deterministically. The test gives hero an
+enormous stack (guaranteeing any calling bot goes all-in for less), shoves preflop every hand,
+and retries fresh sessions/seeds until at least two differently-stacked opponents are both
+observed all-in at showdown.
 
-This surfaced a genuine (if small) bug in Phase 1's `build_pots`, found only because this phase
-finally exercises the algorithm with realistic non-round dollar amounts instead of every prior
-test's clean textbook numbers: it grouped contributors by rounding each player's `committed_total`
-to the nearest cent independently before summing, and those independent roundings don't cancel out
-— the reconstructed grand total could drift by a couple of cents from what was actually committed
-(worst case ~$0.02 on a ~$100K pot across 3000 randomized trials). Fixed by grouping contributors
-by proximity (the same `_EPSILON` every other float comparison in `poker/betting.py` already uses)
-instead of by rounding — verified the same repro now drifts by ~1.5e-11 (ordinary float64 noise).
-Full account, including why a worked example built from round numbers couldn't have caught this, in
-`tasks/lessons.md`.
-
-Run just this part's tests:
+This surfaced a genuine bug in Phase 1's `build_pots`, found only because this phase finally uses
+realistic non-round amounts: it grouped contributors by rounding `committed_total` to the nearest
+cent independently, and those roundings didn't cancel out — the reconstructed total could drift a
+couple cents from what was actually committed. Fixed by grouping by proximity (the same
+`_EPSILON` every float comparison in `betting.py` uses) instead of rounding — the same repro now
+drifts by ~1.5e-11 (ordinary float64 noise). Full account in `tasks/lessons.md`.
 
 ```bash
 pytest tests/backend/test_game_router.py::test_multiway_all_in_produces_a_genuine_side_pot_end_to_end -v
@@ -874,75 +696,50 @@ pytest tests/backend/test_game_router.py::test_multiway_all_in_produces_a_genuin
 
 ### Phase 6a: modern poker table (frontend, static)
 
-Rewrites the game screen for 1-4 opponents and real multi-street play against Phase 5's API,
-replacing Parts 8-10's single fixed-pot heads-up view. Deliberately black/white — only suit glyphs
-use color (red for hearts/diamonds, matching real card conventions), everything else on the table
-itself is grayscale regardless of the app's own light/dark theme toggle, since a felt table doesn't
-"go light mode." No animations yet — that's Phase 6b, which needs a new dependency (Framer Motion)
-and its own explicit sign-off before it starts, per the Part 12 plan.
+Rewrites the game screen for 1-4 opponents and real multi-street play. Deliberately
+black/white — only suit glyphs use color, everything else on the table stays grayscale regardless
+of the app's light/dark toggle, since a felt table doesn't "go light mode." No animations yet —
+that's Phase 6b, a separate signed-off phase (new Framer Motion dependency).
 
-- **`PokerTable`** — an oval "felt" surface (seats arranged around it via `getSeatPosition`, a
-  small lookup table keyed by opponent count) with the community board centered — 5 slots always
-  rendered, undealt ones shown as empty dashed placeholders so "how many streets have run" reads at
-  a glance even without animation. A single `hand` (the backend's `HandResponse`) is the only state
-  that matters now — its own `street` field distinguishes "hero has a decision" from "hand is over,"
-  replacing the old `pendingHand`/`resolvedHand` split.
-- **`Seat`** (new) — one seat's persona label, live stack, and hole cards. Redaction is entirely
-  the backend's job (`hole_cards` is `null` until a seat's earned the right to be seen) — this
-  component only decides *how* to render what it's given: face-down placeholders for a hidden
-  non-hero seat, nothing at all for a folded seat (mucked, not still face-down on the table).
-- **`ActionControls`** — rewritten around the backend's own `legal_action_bounds` object directly
+- **`PokerTable`** — an oval felt (seats via `getSeatPosition`, keyed by opponent count), 5 board
+  slots always rendered, undealt ones shown as dashed placeholders. A single `hand` object is the
+  only state that matters — its `street` field distinguishes "hero has a decision" from "hand is
+  over."
+- **`Seat`** (new) — persona label, live stack, hole cards. Redaction is entirely the backend's
+  job (`hole_cards` is `null` until earned) — this component only decides *how* to render what
+  it's given: face-down for a hidden seat, nothing for a folded one (mucked, not face-down).
+- **`ActionControls`** — rewritten around the backend's `legal_action_bounds` object directly
   (`can_fold`/`can_check`/`can_call`/`call_amount`/`can_raise`/`min_raise_to`/`max_raise_to`)
-  instead of a single fixed `betToCall` — labels itself "Check" vs. "Call $X" based on
-  `can_check`, and bounds the raise input by the real `min_raise_to`/`max_raise_to` rather than a
-  client-side guess. An "All-in" shortcut fills the raise field with `max_raise_to`.
-- **`HandResultBanner`** — rewritten for `winners: [seat_index, ...]` instead of a single fixed
-  `hero`/`opponent`/`split` label, since 1-4 opponents means any number of winners is possible (a
-  split, or a side pot won uncontested by a seat who wasn't even eligible for the whole pot).
-- The existing per-session dashboard (`hand-history-table.jsx`, `compute-win-rate.js`) is adapted
-  — not redesigned — to the new `players[]`/`winners[]` shape so the app keeps working end-to-end;
-  its "Equity" column is dropped (that data isn't in the new API response at all, matching the
-  Kelly UI's explicit deferral).
-- `SessionSetupForm`/`useGameSession` now send `num_opponents` (1-4) instead of `bot_persona` —
-  personas are randomly assigned server-side, not chosen here.
-
-Run just this part's tests:
+  instead of a single fixed bet-to-call. An "All-in" shortcut fills the raise field with
+  `max_raise_to`.
+- **`HandResultBanner`** — rewritten for `winners: [seat_index, ...]`, since 1-4 opponents means
+  any number of winners (a split, or an uncontested side pot).
+- The per-session dashboard is adapted (not redesigned) to the new `players[]`/`winners[]` shape;
+  its "Equity" column is dropped (not in the new response, matching the Kelly UI's deferral).
+- `SessionSetupForm`/`useGameSession` send `num_opponents` instead of `bot_persona`.
 
 ```bash
 cd frontend && npm run test
 ```
 
-**Could not be visually verified in a browser this session** (no browser tooling available) —
-verified via the full component test suite (33 tests, including rewritten `action-controls`/
-`poker-table` suites against the new API shapes), `oxlint`, and a production `vite build`, but not
-by actually looking at the rendered table. Worth a manual pass in a real browser before considering
-this phase fully done, per this project's own established lesson (Part 10's two real UI bugs both
-shipped past passing unit tests and were only caught by manual browser testing).
+Verified via the full component test suite (33 tests), `oxlint`, and a production build — not by
+looking at a rendered browser this session. Worth a manual visual pass, per this project's own
+lesson (Part 10's two real UI bugs both passed unit tests and were only caught manually).
 
 ### Phase 6b: dealing/flip/chip animations
 
-Adds Framer Motion (~42KB gzipped) — signed off explicitly before this phase started, per the Part
-12 plan — and animates the transitions the static Phase 6a layout only ever *snapped* between:
+Adds Framer Motion (~42KB gzipped, signed off before this phase started) and animates the
+transitions Phase 6a only ever snapped between:
 
-- **`AnimatedCard`** (new) — the animated counterpart to `PlayingCard`, built around two
-  intentionally separate props (`dealt`, `card`) rather than one nullable `card`, since "not dealt
-  yet" and "dealt face-down" are genuinely different states needing different treatment. A
-  `dealt: false -> true` transition plays a deal-in entrance (fade + slight rise) exactly once,
-  whether the card appears face-down (an opponent's hidden hole cards) or already face-up (the
-  board, which real dealers place face-up directly — never face-down then flipped). A `card: null
-  -> <value>` transition on an already-dealt card plays a 3D flip instead of an instant swap — this
-  is specifically the showdown-reveal moment for an opponent's hole cards.
-- **`Seat`** — hole-card slots are now keyed by *position* (0/1), not card value, so a showdown
-  reveal updates the same element in place (letting it flip) rather than unmounting one card and
-  mounting a different one. Deal-in is staggered by seat index, mirroring a real dealer's rotation.
-  The winning seat(s) now pulse (scale + glow) instead of Phase 6a's static white highlight.
-- **`PokerTable`** — the felt/seats/board subtree is now keyed by `hand.id`, so a genuinely new
-  hand remounts and replays every deal-in animation, while actions *within* the same hand only
-  update already-mounted elements (no re-triggered entrance animations on every street). Board
-  cards use `AnimatedCard` with a per-card stagger; the pot amount pulses on every change; a small
-  glowing "chip" now visibly travels from the pot to each winning seat once a hand completes.
-
-Run just this part's tests:
+- **`AnimatedCard`** (new) — built around two separate props (`dealt`, `card`) rather than one
+  nullable card, since "not dealt" and "dealt face-down" need different treatment. A `dealt:
+  false → true` transition plays a deal-in entrance once, face-down or face-up. A `card: null →
+  <value>` transition on an already-dealt card plays a 3D flip — the showdown-reveal moment.
+- **`Seat`** — hole-card slots are keyed by position, not card value, so a showdown reveal
+  updates the same element in place (letting it flip) instead of remounting.
+- **`PokerTable`** — the felt/seats/board subtree is keyed by `hand.id`, so a new hand replays
+  every deal-in while actions within the same hand only update mounted elements. Board cards
+  stagger in; the pot pulses on change; a glowing chip travels from pot to winning seat(s).
 
 ```bash
 cd frontend && npm run test -- animated-card poker-table
@@ -950,25 +747,17 @@ cd frontend && npm run test -- animated-card poker-table
 
 ## Part 12 Phase 7: account-wide statistics page
 
-An aggregation across every session a user has ever played, distinct from the existing
-per-session dashboard (Part 10), which only ever looks at one session at a time.
+An aggregation across every session a user has ever played, distinct from the per-session
+dashboard (Part 10).
 
-- **`GET /api/users/me/stats`** (new) — `compute_user_stats` fetches every one of the user's
-  `HandPlayer` rows for completed hands in two flat queries (not N+1 per hand), then groups them
-  by `hand_history_id` in Python. Knowing hero won isn't enough on its own to know whether it was
-  an outright win or a split — that depends on how many *other* seats in the same hand also have
-  `is_winner=True`, which is why this needs every seat's row, not just hero's.
-  `cumulative_bankroll_change` sums each session's own already-persisted `(current_bankroll -
-  starting_bankroll)` directly, rather than re-deriving it from individual hand deltas — the
-  session row is already the authoritative source, and stays correct even with a hand still in
-  progress. `biggest_win`/`biggest_loss` are `None` (not `0`) when there's no hand of that kind yet
-  — "never won" and "won exactly $0 once" are different facts.
-- **`StatsPage`** (new, at `/stats`, linked from the header) — reshapes the backend's flat
-  `win_count`/`win_rate`-style fields into the nested `{count, pct}` shape the existing
-  `WinRateSummary` component already expects, reusing it as-is rather than teaching it a second
-  shape.
-
-Run just this part's tests:
+- **`GET /api/users/me/stats`** (new) — `compute_user_stats` fetches every completed-hand
+  `HandPlayer` row in two flat queries (not N+1), groups by `hand_history_id` in Python (knowing
+  hero won isn't enough to know outright win vs. split — needs every seat's row).
+  `cumulative_bankroll_change` sums each session's own persisted `(current_bankroll -
+  starting_bankroll)` directly rather than re-deriving from hand deltas. `biggest_win`/
+  `biggest_loss` are `None` (not `0`) when there's no hand of that kind yet.
+- **`StatsPage`** (new, `/stats`, linked from the header) — reshapes the backend's flat fields
+  into the nested shape the existing `WinRateSummary` component already expects, reused as-is.
 
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
@@ -977,74 +766,53 @@ cd frontend && npm run test -- stats-page
 
 ## Part 12 Phase 8: re-polish Kelly-recommended-stake UI
 
-Wires hero's live equity and Kelly-recommended stake into the new multi-street flow -- the
-`HandAction.equity_at_decision`/`kelly_recommended_stake` columns Phase 4 added were real, but
-nothing had ever actually populated them; every hero decision from Phase 5 onward went straight
-through `legal_action_bounds` with no equity computed for hero at all (only bots' own equity, via
-a separate codepath).
+Wires hero's live equity and Kelly-recommended stake into the multi-street flow — the columns
+Phase 4 added were real but nothing populated them; every hero decision from Phase 5 onward went
+straight through `legal_action_bounds` with no equity computed for hero.
 
-- **`_compute_hero_kelly_info`** (new, `backend/services/game_engine.py`) — hero's equity via
-  `poker.equity.calculate_equity` (3000 simulations — noticeably more than the bots' own 750, since
-  this number is shown to and decided on by an actual human) and Kelly-recommended stake via
-  `poker.kelly.kelly_fraction_from_pot_odds`. `kelly_recommended_stake` is `None` whenever hero can
-  check for free — Kelly sizing needs a real bet size to anchor to, the same scope Part 5
-  originally gave the formula, not a new restriction invented here.
-- **`HandResponse`** gains top-level `equity_at_decision`/`kelly_recommended_stake` fields (both
-  `None` once `street == 'complete'`), computed fresh for whatever the *current* decision is.
-  **`HandActionLogEntry`** gains the same two fields per-action — populated only on hero's own
-  persisted rows (never blinds, never bot actions), letting a hand's replay/history show what
-  hero's equity actually was at each real decision, not just the live one.
-- The values persisted on a `HandAction` row are computed **before** applying hero's decision (in
-  `act_on_hand`), so they reflect what was actually true at the moment of that decision — not
-  whatever recomputing the same numbers slightly later (with different Monte Carlo noise) would
-  produce.
-- **`KellyStakePanel`** (Part 10, previously built but unwired since Phase 6a) is back, restyled
-  dark/white to match the rest of the game screen, showing "Free to check" and a `—` for the Kelly
-  stake instead of a nonsensical number when there's nothing to call.
+- **`_compute_hero_kelly_info`** (new) — hero's equity via `calculate_equity` (3000 simulations,
+  more than bots' 750, since this is shown to a human) and Kelly-recommended stake via
+  `kelly_fraction_from_pot_odds`. `kelly_recommended_stake` is `None` whenever hero can check for
+  free.
+- **`HandResponse`** gains top-level `equity_at_decision`/`kelly_recommended_stake`. Same two
+  fields land per-action on `HandActionLogEntry`, populated only on hero's own persisted rows.
+- Values are computed **before** applying hero's decision, so they reflect what was actually true
+  at that moment, not a later recompute with different Monte Carlo noise.
+- **`KellyStakePanel`** (built in Part 10, unwired since Phase 6a) is back, restyled to match the
+  game screen, showing "Free to check" instead of a nonsensical number when there's nothing to
+  call.
 
-**Real, noticeable cost**: every hero decision now runs a 3000-simulation Monte Carlo equity
-calculation (previously only bots paid this cost, at a smaller 750-simulation size). The full
-backend test suite's wall-clock time roughly tripled as a direct result (about 45s → ~140s) —
-expected and accepted, not a regression to chase down, but worth knowing about if the suite
-suddenly feels slow.
-
-Run just this part's tests:
+**Real, accepted cost**: every hero decision now runs a 3000-simulation equity calculation
+(previously only bots paid this). Backend suite wall-clock roughly tripled (~45s → ~140s).
 
 ```bash
 pytest tests/backend/test_game_router.py -k "equity or kelly_stake" -v
 cd frontend && npm run test -- poker-table
 ```
 
-Part 12 (all 8 phases) is now complete — the full multi-street, multi-opponent poker engine, backend
-wiring, animated frontend, account-wide stats, and live Kelly-recommended sizing are all built and
-tested end to end.
+Part 12 (all 8 phases) is now complete — the full multi-street, multi-opponent engine, backend
+wiring, animated frontend, account-wide stats, and live Kelly sizing are built and tested
+end-to-end.
 
 ## Part 13: Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics
 
-Hands-on feedback from actually playing the deployed Part 12 app drives this part: visual/layout
-requests for the table, a missing "what did the opponent just do" indicator, real interaction
-latency, a game-balance question about starting stacks, and two new features (a deeper profile
-section, richer stats with a play-style spider chart). Same pattern as Part 12 — each phase gets
-its own check-in before starting.
+Driven by hands-on feedback from the deployed Part 12 app: table visual/layout requests, a
+missing "what did the opponent just do" indicator, interaction latency, a game-balance question
+about starting stacks, and two new features (a deeper profile, richer stats with a play-style
+spider chart).
 
 ### Phase 1: table redesign + opponent action display
 
-Frontend-only, in `frontend/src/components/poker/`.
+Frontend only.
 
-- **`PokerTable`** — green felt (was black/zinc), a much smaller fixed corner radius (was a full
-  pill/stadium shape), and a wider container (`max-w-3xl` → `max-w-6xl`). The felt/seats/board now
-  render even before any hand is dealt — outlined seat/board placeholders built from
-  `session.opponents`, so the table reads as a real table waiting for a hand instead of a blank
-  area with just a "Deal hand" button (now an overlay on top of that, not a full replacement for
-  it). Restructured into two columns: the felt on the left, a new right-side panel with hero's hole
-  cards enlarged, hero's stack, `KellyStakePanel`, and `ActionControls` grouped together.
-- **`Seat`** — gains a transient per-seat action label ("Folds" / "Checks" / "Calls $X" /
-  "Raises +$X" / "Posts $X"), sourced from `hand.actions` (already returned by `deal`/`act`,
-  never previously rendered) and cleared again after ~1.5s. A brand-new hand (a fresh deal, or the
-  hand recovered on page load) doesn't flash its own setup/blind actions as toasts — only a later
-  response for the *same* hand (an `act` call resolving bot turns and/or hero's own action) does.
-
-Run just this phase's tests:
+- **`PokerTable`** — green felt (was black/zinc), a smaller fixed corner radius (was a full pill
+  shape), wider container (`max-w-3xl` → `max-w-6xl`). Felt/seats/board now render before any
+  hand is dealt, as outlined placeholders, so the table reads as waiting rather than blank.
+  Restructured into two columns: felt on the left, a right panel with hero's cards enlarged,
+  stack, `KellyStakePanel`, and `ActionControls`.
+- **`Seat`** — a transient per-seat action label ("Folds"/"Checks"/"Calls $X"/"Raises +$X"/"Posts
+  $X"), sourced from `hand.actions`, cleared after ~1.5s. A brand-new hand doesn't flash its own
+  setup/blind actions — only a later response for the *same* hand does.
 
 ```bash
 cd frontend && npm run test -- poker-table
@@ -1054,22 +822,12 @@ cd frontend && npm run test -- poker-table
 
 Both in `backend/services/game_engine.py`.
 
-- **Bot stack balancing** — `deal_hand` previously sampled each bot's per-hand stack from a fixed
-  50-150 big-blind band with no relationship to hero's own bankroll. `_sample_opponent_stack_bb`
-  (new) instead centers that sample on hero's own current bankroll (in big blinds): a deep hero
-  now sits across from a deep-feeling table, and a hero who's busted down to a short stack no
-  longer faces bots several times their size. The floor/ceiling (`BOT_STACK_BASELINE_FLOOR_BB` =
-  10, `BOT_STACK_BASELINE_CEILING_BB` = 300) clamp the *baseline* hero's-bankroll-in-BB the 0.5x-1.5x
-  fraction range is centered on, not the final sampled stack directly — clamping the final value
-  instead would collapse every bot to the exact same number once hero's bankroll is deep enough to
-  blow past the ceiling, which defeats the entire "randomized" premise (this surfaced immediately
-  against `test_multiway_all_in_produces_a_genuine_side_pot_end_to_end`'s enormous-hero-bankroll
-  setup, which needs genuinely different-sized bot stacks to prove a real side pot formed).
-- **Performance** — `HERO_NUM_SIMULATIONS` (the live equity/Kelly simulation count shown to and
-  decided on by hero, wired up in Part 12 Phase 8) lowered from 3000 to 1000. Bots' own
-  `DEFAULT_BOT_NUM_SIMULATIONS` (750, in `poker/hand_flow.py`) is untouched.
-
-Run just this phase's tests:
+- **Bot stack balancing** — `_sample_opponent_stack_bb` (new) centers each bot's per-hand stack
+  sample on hero's own current bankroll in big blinds, instead of a fixed 50-150bb band unrelated
+  to hero. Floor/ceiling clamp the *baseline* being sampled from, not the final stack directly —
+  clamping the final value would collapse every bot to the same number once hero is deep enough,
+  defeating the point of randomization.
+- **Performance** — `HERO_NUM_SIMULATIONS` lowered from 3000 to 1000. Bots' own 750 is untouched.
 
 ```bash
 pytest tests/backend/test_game_router.py -v
@@ -1077,24 +835,16 @@ pytest tests/backend/test_game_router.py -v
 
 ### Phase 3: profile page
 
-- **`users` table** gains nullable `bio`/`avatar_url` columns (`backend/models/user.py`; see
-  `backend/migrations/0002_part13_profile_columns.sql` for the manual step a live database needs).
-  `avatar_url` is a pasted image URL, not a real upload — this project has no file/object storage
-  set up, and adding one is a meaningfully bigger scope than a profile page warrants.
-- **`PATCH /auth/me`** (new, `backend/routers/auth.py`) updates `display_name`/`bio`/`avatar_url`
-  for the current user. It's a full-form save, not a partial patch — the frontend always submits
-  all three fields together, so `UpdateProfileRequest` (new, `backend/schemas/auth.py`) treats a
-  blank field as *clearing* that column (a `blank_to_none` validator turns an empty string into a
-  real `NULL`) rather than leaving it untouched.
-- **`ProfilePage`** (new, `/profile`, linked from `AppHeader`) — edits display name/bio/avatar URL
-  via a new `updateProfile` action on `AuthContext` (which also refreshes the shared `user`, so
-  `AppHeader`'s display name updates immediately), plus a read-only snapshot of the same
-  account-wide stats `/stats` already shows (Part 12 Phase 7's `GET /users/me/stats`, reused rather
-  than duplicated). The avatar preview falls back to an initials circle both when no URL is set and
-  when a set URL fails to load (`onError`) — a broken pasted link is a real, expected case here, not
-  just a hypothetical one.
-
-Run just this phase's tests:
+- **`users` table** gains nullable `bio`/`avatar_url` (see
+  `backend/migrations/0002_part13_profile_columns.sql` for the live-database step). `avatar_url`
+  is a pasted image URL, not a real upload — no file/object storage exists in this project, and
+  adding one is out of scope for a profile page.
+- **`PATCH /auth/me`** (new) updates `display_name`/`bio`/`avatar_url` as a full-form save — a
+  blank field clears that column (`blank_to_none` turns empty string into `NULL`).
+- **`ProfilePage`** (new, `/profile`) — edits via a new `updateProfile` action on `AuthContext`
+  (also refreshes the shared `user`), plus a read-only snapshot of the same account-wide stats
+  `/stats` shows. Avatar preview falls back to an initials circle when no URL is set or a set URL
+  fails to load.
 
 ```bash
 pytest tests/backend/test_auth_router.py -v
@@ -1103,44 +853,25 @@ cd frontend && npm run test -- profile-page use-auth
 
 ### Phase 4: play-style analytics, spider chart, account-wide bankroll chart
 
-- **`compute_user_stats`** (`backend/services/user_stats.py`) gains two play-style metrics, computed
-  empirically from hero's own persisted `HandAction` rows (hero always occupies `seat_index == 0` --
-  `poker/hand_flow.py` hardcodes `hero_seat=0` -- so no join to `HandPlayer` is needed) rather than a
-  fixed threshold: the same tight/loose and passive/aggressive axes `poker/bots.py`'s personas are
-  built from.
-  - **`vpip_rate`** ("voluntarily put money in pot") -- the fraction of hands where hero called or
-    raised preflop, as opposed to folding or only ever checking a free option (a forced blind isn't
-    voluntary, and a zero-amount preflop `match` is a free check -- neither counts).
-  - **`aggression_factor`** -- the standard poker HUD raises-to-calls ratio across every street. A
-    check (`match` with `amount == 0`) is excluded from the denominator entirely. `None` (not `0` or
-    infinity) until hero has made a real call -- not enough data for a ratio yet, the same "no data"
-    convention `biggest_win`/`biggest_loss` already use.
-  - **`bankroll_history`** -- every `BankrollLog` row across every one of the user's sessions,
-    chronologically, alongside the existing per-session-only chart from Part 10. A session boundary
-    shows up here as a real jump back to that session's own `starting_bankroll`, not something
-    smoothed over -- each session genuinely is its own scoped bankroll, per this project's
-    Kelly-Criterion premise.
-- **`PlayStyleRadarChart`** (new, `frontend/src/components/dashboard/`) -- a `recharts` `RadarChart`
-  (already a dependency, no new package needed) combining the two new metrics with two Part 12 Phase
-  7 already computes (`win_rate`/`fold_rate`, reused rather than duplicated), all normalized to a
-  shared 0-100 scale. `aggression_factor` is unbounded, so it's capped for this chart's display only
-  (`AGGRESSION_FACTOR_DISPLAY_CAP = 3`) -- the raw ratio is still shown as plain text elsewhere,
-  unclamped. Rendered on both `StatsPage` and `ProfilePage`.
-- **`BankrollGrowthChart`**'s `startingBankroll` prop is now optional -- the per-session dashboard
-  still passes it for a dashed reference line, but the new account-wide chart on `StatsPage` (fed by
-  the same `computeBankrollSeries` helper, just given `bankroll_history` instead of one session's
-  log) has no single "starting" value to mark, so it omits the prop instead of picking one session's
-  value arbitrarily.
-- **Fixed a real, flaky test-suite bug** this phase's new test file exposed: `npm run test`'s
-  `NODE_OPTIONS="--localstorage-file=..."` flag (needed because jsdom's own `localStorage` throws
-  without it) backs `localStorage` with a single real file shared by every worker *thread* in the
-  process, not a separate store per test file -- so two test files running in parallel could race
-  (one file's `localStorage.clear()` wiping another file's just-set auth token before that file's
-  own render ever read it). `vitest.config.js` now sets `fileParallelism: false`; confirmed the
-  previously-observed flake in `profile-page.test.jsx`/`use-auth.test.jsx` across 6 repeated full
-  suite runs (0 failures, versus intermittent failures before).
-
-Run just this phase's tests:
+- **`compute_user_stats`** gains two play-style metrics computed from hero's own persisted
+  `HandAction` rows (hero is always `seat_index == 0`):
+  - **`vpip_rate`** — fraction of hands hero voluntarily called or raised preflop (a forced blind
+    or free check don't count).
+  - **`aggression_factor`** — raises-to-calls ratio across every street (checks excluded). `None`
+    until hero has made a real call.
+  - **`bankroll_history`** — every `BankrollLog` row across every session, chronologically. A
+    session boundary shows as a real jump back to that session's `starting_bankroll`, not
+    smoothed over.
+- **`PlayStyleRadarChart`** (new) — a `recharts` `RadarChart` combining the two new metrics with
+  `win_rate`/`fold_rate` (Part 12 Phase 7), normalized to a shared 0-100 scale.
+  `aggression_factor` is capped for display only (`AGGRESSION_FACTOR_DISPLAY_CAP = 3`); the raw
+  ratio is shown unclamped elsewhere. Rendered on `StatsPage` and `ProfilePage`.
+- **`BankrollGrowthChart`**'s `startingBankroll` prop is now optional — the account-wide chart
+  has no single "starting" value to mark, so it omits the prop rather than picking one arbitrarily.
+- **Fixed a flaky test bug**: `NODE_OPTIONS="--localstorage-file=..."` backs `localStorage` with
+  one real file shared across parallel worker threads, letting two test files race on it.
+  `vitest.config.js` now sets `fileParallelism: false` — confirmed across 6 repeated full suite
+  runs (0 failures vs. intermittent before).
 
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
@@ -1151,26 +882,19 @@ Part 13 (all 4 phases) is now complete.
 
 ## Part 14: Player Education, Advanced Stats & Table Polish
 
-Driven by hands-on feedback after using the deployed Part 13 app: a first-time-player tutorial and
-Kelly Criterion education page, a much richer stat set (PFR, 3-bet%, ATS%, per-street fold/aggression
-frequency, showdown stats), and visual polish. Same pattern as every part before it -- only Phase 1
-starts immediately; Phases 2-6 (education pages, then the new stats, then a charts overhaul) each
-get their own check-in first.
+Driven by feedback on the deployed Part 13 app: a first-time-player tutorial and Kelly education
+page, a much richer stat set (PFR, 3-bet%, ATS%, per-street fold/aggression frequency, showdown
+stats), and visual polish.
 
 ### Phase 1: header + table visual polish
 
 Frontend only.
 
-- **`AppHeader`** -- "Kelly Poker Simulator" goes from the default text size to `text-xl font-bold`.
-- **`PokerTable`** -- the felt's border changes from a thin `border-white/10` accent to a solid
-  8px `border-amber-900` (a wood-rail look), and the table widens (`max-w-6xl` → `max-w-7xl`,
-  matched in `GamePage`'s header row so the two stay aligned).
-- **Hero hand panel** -- `AnimatedCard` gains a new `lg` size (`h-28 w-20`, up from `md`'s
-  `h-20 w-14`) used only for hero's own cards in the right-side panel, which also widens
-  (`380px` → `440px`) and gets more padding -- filling the space that was previously just empty
-  around a smaller card size.
-
-Run just this phase's tests:
+- **`AppHeader`** — "Kelly Poker Simulator" goes to `text-xl font-bold`.
+- **`PokerTable`** — felt border changes to a solid 8px `border-amber-900` (wood-rail look);
+  table widens (`max-w-6xl` → `max-w-7xl`, matched in `GamePage`'s header row).
+- **Hero hand panel** — `AnimatedCard` gains an `lg` size (`h-28 w-20`) for hero's own cards; the
+  right-side panel widens (`380px` → `440px`) with more padding.
 
 ```bash
 cd frontend && npm run test -- poker-table animated-card
@@ -1178,19 +902,13 @@ cd frontend && npm run test -- poker-table animated-card
 
 ### Phase 2: "How to Play" tutorial page
 
-New public page (`frontend/src/pages/how-to-play-page.jsx`, `/how-to-play`) -- registered *outside*
-`ProtectedRoute` in `app.jsx`, so a brand-new visitor can read it before ever signing up, matching
-the "first-time player" framing directly. Pure static content, no backend calls: hole cards vs. the
-board, the four streets (preflop/flop/turn/river), check/call/fold/raise in plain language,
-showdown/split pots, and a glossary. The glossary renders via a new shared `GlossaryEntry`
-component (`frontend/src/components/education/`), reused as-is by Phase 3's Kelly Criterion page so
-both glossaries look identical rather than duplicating markup.
+New public page (`/how-to-play`), registered outside `ProtectedRoute` so a new visitor can read
+it before signing up. Static content: hole cards vs. the board, the four streets, check/call/
+fold/raise in plain language, showdown/split pots, and a glossary. The glossary uses a new shared
+`GlossaryEntry` component, reused as-is by Phase 3.
 
-`AppHeader` gains a "How to Play" link, visible whether or not a user is logged in (previously every
-nav link lived inside the `user &&` guard); `LoginPage`/`SignupPage` also gain a small link to it,
-since an unauthenticated visitor lands there first.
-
-Run just this phase's tests:
+`AppHeader` gains a "How to Play" link visible whether or not a user is logged in (previously
+every nav link was gated behind `user &&`); Login/Signup also link to it.
 
 ```bash
 cd frontend && npm run test -- how-to-play
@@ -1198,56 +916,33 @@ cd frontend && npm run test -- how-to-play
 
 ### Phase 3: Kelly Criterion education page
 
-New public page (`frontend/src/pages/kelly-criterion-page.jsx`, `/kelly-criterion`), same
-public-route treatment as Phase 2. Content: the formula (`f* = (bp − q) / b`) explained term by
-term, two worked examples (the classic 60%-win/even-money textbook case from
-`poker/kelly.py`'s own `test_kelly_fraction_matches_classic_example`, and the poker pot-odds bridge
-from `kelly_fraction_from_pot_odds`'s own test), a small hand-rolled bar diagram (no chart library --
-plain styled `<div>`s) showing expected log-growth at several stake fractions computed directly from
-`poker.kelly.expected_log_growth(0.6, 1, f)`, real numbers rather than invented ones, and a "beyond
-poker" section connecting back to the README's own Ed Thorp framing. Glossary reuses Phase 2's
-`GlossaryEntry` component. `AppHeader` gains a "Kelly Criterion" link, same visibility rule as "How
-to Play."
-
-Run just this phase's tests:
+New public page (`/kelly-criterion`), same treatment as Phase 2. Content: the formula explained
+term by term, two worked examples (from `poker/kelly.py`'s own tests), a small hand-rolled bar
+diagram (no chart library) showing expected log-growth at several stake fractions computed
+directly from `expected_log_growth`, and a "beyond poker" section connecting back to the README's
+Ed Thorp framing. Reuses Phase 2's `GlossaryEntry`.
 
 ```bash
 cd frontend && npm run test -- kelly-criterion
 ```
 
-### Phase 4: position/sequence-aware preflop stats -- PFR, 3-bet%, ATS%
+### Phase 4: position/sequence-aware preflop stats — PFR, 3-bet%, ATS%
 
-Backend only, `backend/services/user_stats.py`. All three need to know how much action already
-happened before hero's own preflop decision on that street -- a genuinely different
-(sequence/position-aware) computation from Phase 4 (Part 13)'s flat VPIP/aggression filters, so it
-gets a new shared helper, `_hero_preflop_decisions`, rather than three near-duplicate loops. It walks
-each complete hand's full action log (every seat, not just hero's) in `seq` order once, and for
-hero's FIRST preflop decision each hand records how many real entries (a raise, or a call with
-`amount > 0`) happened before it, how many of those were raises, and whether hero held the button.
+Backend only. These need to know how much action happened before hero's own preflop decision — a
+different, sequence-aware computation from Phase 4 (Part 13)'s flat filters, so it gets a shared
+helper, `_hero_preflop_decisions`, walking each hand's full action log once.
 
-- **PFR** (preflop raise %) -- fraction of hands where hero's first preflop entry was itself a raise
-  (a strict subset of `vpip_rate`'s hand set).
-- **3-bet%** -- of hands where hero faced at least one existing preflop raise before acting (an
-  "opportunity"), the fraction hero re-raised.
-- **ATS%** (attempt to steal) -- hero on the button, folded to before hero's turn (0 entries) -- an
-  "opportunity"; of those, the fraction hero raised. Only meaningful for `num_opponents` >= 2, not
-  special-cased for heads-up.
+- **PFR** — fraction of hands where hero's first preflop entry was itself a raise.
+- **3-bet%** — of hands hero faced an existing preflop raise ("opportunity"), the fraction hero
+  re-raised.
+- **ATS%** — hero on the button with action folded to them ("opportunity"); fraction hero raised.
+  Only meaningful for 2+ opponents.
 
-**A real finding from testing this**: a genuine opponent preflop *raise* before hero's turn turns
-out to be structurally rare through the live bot-decision pipeline, confirmed by direct
-experimentation -- not a bug, just how the existing (pre-Part-14) bot-decision code behaves. Two
-compounding reasons: `poker/hand_flow.py`'s `default_bot_action` sizes a persona's raise as a
-fraction of the *current pot*, which at the blinds-only pot a hand starts with is almost always
-below the legal minimum raise and silently downgrades to a call; and even personas whose sizing
-isn't pot-fraction-based (`KellyOptimalBot`) need roughly 40% equity to justify raising a 2-into-3
-blinds-only pot, while a random hand's average equity 3-4-way is only ~25%. The 3-bet% test
-therefore constructs its scenario directly (a new `_insert_complete_hand` test helper writing
-`HandHistory`/`HandPlayer`/`HandAction` rows straight to the test DB) rather than retrying live
-deals for a condition that would need a very large attempt budget to hit reliably -- PFR/ATS%'s own
-tests didn't need this, since both only depend on hero's *own* controlled action, never an
-opponent's.
-
-Run just this phase's tests:
+**A real finding**: a genuine opponent preflop raise before hero's turn is structurally rare
+through the live bot pipeline — not a bug, just how existing bot sizing behaves (raise sizing is
+a fraction of the current pot, almost always below the legal minimum at a blinds-only pot). The
+3-bet% test constructs its scenario directly (a new `_insert_complete_hand` helper writing rows
+straight to the test DB) rather than retrying live deals.
 
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
@@ -1255,108 +950,63 @@ pytest tests/backend/test_user_stats_router.py -v
 
 ### Phase 5: showdown, per-street, and volume stats
 
-Backend only, same file, building on Phase 4's queries (no new ones except `HandHistory.board_cards`,
-now also selected alongside `id`/`button_seat`).
+Backend only, same file.
 
-- **WTSD%** (went to showdown) -- fraction of *all* hands where more than one seat was still
-  non-folded at `street == 'complete'` (a genuine showdown, not a fold-out). Reuses the existing
-  win/loss/split loop's own per-hand player rows -- no new query, just an extra counter alongside
-  the existing winner count.
-- **W$SD%** (won at showdown) -- of the showdown hands above, the fraction hero won. `None` (not `0`)
-  until hero has actually reached a showdown.
-- **WWSF%** (won when saw flop) -- of hands where hero didn't fold preflop *and* a flop was actually
-  dealt (`board_cards` has ≥ 3 cards -- some hands end preflop with no flop at all), the fraction
-  hero won.
-- **Per-street fold/aggression frequency** (preflop/flop/turn/river) -- for each street, folds
-  (resp. raises) hero made divided by hero's own real decisions on that street (excludes
-  `post_blind`, which isn't a decision) -- a *frequency* over hero's own choices, distinct from
-  `aggression_factor`'s raises-to-calls ratio across every street. `None` for a street hero has
-  never had a decision on.
-- **`hands_won`** (`win_count + split_count`) and **`sessions_won`** (ended sessions where
-  `current_bankroll > starting_bankroll` -- only *decided* sessions count; an in-progress session's
-  bankroll can still move either way).
+- **WTSD%** — fraction of all hands where more than one seat was non-folded at completion.
+- **W$SD%** — of showdown hands, the fraction hero won. `None` until hero reaches a showdown.
+- **WWSF%** — of hands hero saw a flop, the fraction hero won.
+- **Per-street fold/aggression frequency** — folds/raises over hero's own real decisions per
+  street (excludes blinds). `None` for a street with no decisions yet.
+- **`hands_won`** and **`sessions_won`** (ended sessions where `current_bankroll >
+  starting_bankroll`).
 
-The test helper introduced for Phase 4's 3-bet% scenario (`_insert_complete_hand`, writing
-`HandHistory`/`HandPlayer`/`HandAction` rows directly) is generalized here to accept an arbitrary
-list of players and a `board_cards` value, since showdown/per-street scenarios need exact multi-seat
-and multi-street control that live bot decisions can't reliably provide either.
-
-Run just this phase's tests:
+The `_insert_complete_hand` test helper is generalized to accept an arbitrary player list and
+board, since these scenarios need exact multi-seat/multi-street control.
 
 ```bash
 pytest tests/backend/test_user_stats_router.py -v
 ```
 
-### Phase 6: stats dashboard overhaul -- charts + performance coloring
+### Phase 6: stats dashboard overhaul — charts + performance coloring
 
-Frontend only. The final phase of Part 14's plan.
+Frontend only, the final phase of Part 14.
 
-- **New `frontend/src/lib/stat-classifier.js`** -- `classifyStat(statKey, value)` turns a raw stat
-  into `'good' | 'critical' | 'neutral'` against standard, widely-cited poker HUD "healthy range"
-  guidance (not derived from this project's own bot personas), matching `StatTile`'s own existing
-  variant vocabulary so a classified stat reuses the exact same color tokens a plain tile already
-  uses. `null` (no data yet) or a stat the classifier doesn't cover both resolve to `'neutral'` --
-  win rate/fold rate specifically aren't covered, since no fixed "good" range makes sense without
-  knowing `num_opponents`.
-- **`PlayStyleRadarChart`** extended from 4 to 5 axes (adds PFR) and re-themed: each axis's dot is
-  now colored via `classifyStat` (green/red/neutral) rather than every point sharing the same single
-  accent color, via a custom SVG `dot` renderer on `Radar` (recharts doesn't support per-vertex fill
-  out of the box).
-- **New `frontend/src/components/dashboard/stat-radial-gauge.jsx`** (`StatRadialGauge`) -- a
-  single-stat circular gauge using `recharts`' `RadialBarChart` (already a dependency, no new
-  package), colored the same way. `StatsPage` renders one per headline percentage stat (VPIP, PFR,
-  3-bet%, ATS%, WTSD%, W$SD%, WWSF%); `ProfilePage`'s existing play-style section gets a trimmed pair
-  (VPIP, WTSD%) alongside its radar.
-- **`StatsPage`** also gains: a new "Fold / aggression frequency by street" section (plain
-  per-street tiles, not classified -- per-street thresholds are genuinely context-dependent and out
-  of scope for the classifier); `sessions_won`/`hands_won` tiles; the existing "Cumulative change"
-  tile relabeled "All-time winnings" (no new computation, `cumulative_bankroll_change` already *is*
-  this).
-- `WinRateSummary`'s existing segmented bar (Part 12 Phase 7) is left as-is, not re-themed -- it
-  already color-codes win/loss/split/fold and wasn't part of this ask.
-
-Run just this phase's tests:
+- **New `stat-classifier.js`** — `classifyStat(statKey, value)` maps a raw stat to `'good' |
+  'critical' | 'neutral'` against standard poker HUD guidance, reusing `StatTile`'s existing
+  color tokens. `null` or an uncovered stat resolves to `'neutral'`.
+- **`PlayStyleRadarChart`** extended to 5 axes (adds PFR); each axis dot is colored via
+  `classifyStat` through a custom SVG renderer (recharts has no per-vertex fill by default).
+- **New `StatRadialGauge`** — a single-stat circular gauge (`recharts` `RadialBarChart`), colored
+  the same way. Rendered per headline stat on `StatsPage`; a trimmed pair on `ProfilePage`.
+- **`StatsPage`** also gains a per-street fold/aggression section (plain tiles, not classified —
+  thresholds are context-dependent), `sessions_won`/`hands_won` tiles, and relabels "Cumulative
+  change" to "All-time winnings."
 
 ```bash
 cd frontend && npm run test -- stat-classifier stat-radial-gauge play-style-radar-chart stats-page profile-page
 ```
 
-Part 14 (all 6 phases) is now complete -- player education pages, a much richer stat set, and a
-charts overhaul with performance-based coloring.
+Part 14 (all 6 phases) is now complete.
 
 ## Part 15: Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes
 
-Driven by hands-on feedback after using the deployed Part 14 app: the education content was
-text-only (no illustrated hand rankings, no visual street-by-street example, no starting-hand
-chart), the stats page's many abbreviations had no in-app explanation, and the poker table itself
-had two layout bugs (a seat rendering partly off the felt, hero panel bottom not aligned with the
-table's bottom). Same pattern as every part before it -- Phase 1 starts immediately; later phases
-each get their own check-in. A separate ask (using the `magic` MCP server for animations) is on
-hold pending a working API key, and proceeds as its own phase once that's resolved.
+Driven by feedback on the deployed Part 14 app: text-only education content (no illustrated hand
+rankings, no visual street example, no starting-hand chart), stats abbreviations with no in-app
+explanation, and two table layout bugs (a seat rendering off the felt, hero panel misaligned with
+the table bottom). A separate ask (animations via the `magic` MCP server) is on hold pending a
+working API key.
 
-### Phase 1: table layout fixes -- seat position, bottom alignment, glow border
+### Phase 1: table layout fixes — seat position, bottom alignment, glow border
 
-Frontend only, `frontend/src/components/poker/poker-table.jsx` and
-`frontend/src/lib/seat-positions.js`.
+Frontend only.
 
-- **Left-side seat clipping the felt** -- `OPPONENT_LAYOUTS[3]` and `OPPONENT_LAYOUTS[4]` (3- and
-  4-opponent table layouts) placed the leftmost opponent seat at `left: '6%'`; combined with the
-  seat's own rendered width (two cards + a name/stack tag) and its `-translate-x-1/2` centering,
-  that put the seat's left edge at or past the table's own left edge at realistic rendered widths.
-  Moved to `left: '10%'` (and the mirrored right-side seat from `94%` to `90%`, for symmetry) so
-  the full seat box stays inside the felt border.
-- **Hero panel bottom vs. table bottom** -- the two-column row wrapping the felt and the right-side
-  hero panel was `lg:items-start`, aligning only their top edges; since the felt's height comes from
-  a fixed `aspect-[16/10]` and the hero panel's height comes from its own stacked content, the two
-  bottoms never lined up. Changed to `lg:items-end`, aligning both columns' bottom edges directly --
-  simpler than stretching the row and pinning content to the bottom of a taller container, and gives
-  the same visual result.
-- **Glow border on the felt** -- the felt's `shadow-inner` (an inset-only shadow) is now a combined
-  custom shadow carrying both the original inset darkening and a soft outward emerald glow:
-  `shadow-[inset_0_2px_8px_rgba(0,0,0,0.4),0_0_40px_8px_rgba(16,185,129,0.35)]`, matching the felt's
-  own green gradient.
-
-Run just this phase's tests:
+- **Left-side seat clipping the felt** — 3/4-opponent layouts placed the leftmost seat at `left:
+  6%`, which combined with the seat's own width put its edge past the felt's left border. Moved
+  to `10%` (mirrored right seat `94%` → `90%`) so the full seat stays inside the felt.
+- **Hero panel bottom vs. table bottom** — the two-column row was `lg:items-start` (top-aligned
+  only); changed to `lg:items-end` so both columns' bottoms line up.
+- **Glow border** — the felt's inset shadow is now combined with a soft outward emerald glow
+  matching the felt's own gradient.
 
 ```bash
 cd frontend && npm run test -- poker-table
@@ -1364,50 +1014,30 @@ cd frontend && npm run test -- poker-table
 
 ### Phase 2: dark mode for Login, Signup, How to Play, and Kelly Criterion
 
-Frontend only -- `frontend/src/pages/login-page.jsx`, `signup-page.jsx`, `how-to-play-page.jsx`,
-`kelly-criterion-page.jsx`. No global theme toggle was added: `frontend/src/index.css` already
-shipped a complete, unused `.dark { ... }` token override (near-black `--background`, near-white
-`--foreground`, etc., activated via `@custom-variant dark (&:is(.dark *))`) as shadcn boilerplate,
-and all four pages were already built almost entirely from semantic tokens (`bg-background`,
-`text-foreground`, `text-muted-foreground`, shadcn `Card`/`Input`/`Button`/`Label`) rather than
-hardcoded light colors. Each page's root element now carries `className="dark bg-background
-text-foreground ..."`, cascading the existing dark tokens to that page's whole subtree (including
-`AppHeader`, itself fully token-based already) without touching any other page -- nothing else in
-the app references `.dark` as an ancestor selector.
-
-Run just this phase's tests:
+Frontend only. No global theme toggle needed: `index.css` already shipped a complete, unused
+`.dark { ... }` token override as shadcn boilerplate, and all four pages were already built from
+semantic tokens. Each page's root now carries `className="dark bg-background text-foreground
+..."`, cascading the existing dark tokens to that page's subtree without touching any other page.
 
 ```bash
 cd frontend && npm run test -- login-page signup-page how-to-play kelly-criterion
 ```
 
-**Addendum**: extended the same `dark bg-background text-foreground` wrapper to
-`frontend/src/pages/lobby-page.jsx` (the "resume session" / session-setup page), `profile-page.jsx`,
-and `stats-page.jsx` (all three of their return states -- loading/error/loaded), after using the
-deployed app surfaced that these three should also read dark, same as the education/auth pages.
-`StatRadialGauge`'s recharts background arc also gained an explicit `background={{ fill:
-'var(--muted)' }}` -- that chart isn't wrapped in the shared `ChartContainer`
-(`frontend/src/components/ui/chart.jsx`), which is what neutralizes recharts' own hardcoded
-light-gray background-sector default elsewhere, so without this the backdrop arc would have stayed
-light-gray against the new dark background.
+**Addendum**: extended the same wrapper to `lobby-page.jsx`, `profile-page.jsx`, and
+`stats-page.jsx` after using the deployed app showed these should read dark too. `StatRadialGauge`
+also gained an explicit `background={{ fill: 'var(--muted)' }}`, since it isn't wrapped in the
+shared `ChartContainer` that neutralizes recharts' hardcoded light-gray default elsewhere.
 
 ### Phase 3: illustrated hand rankings + illustrated preflop/flop/turn/river example
 
-Frontend only, `frontend/src/pages/how-to-play-page.jsx`, reusing the existing `PlayingCard`
-(`frontend/src/components/poker/playing-card.jsx` -- static, theme-independent, takes `card="Ah"`
-notation) rather than `AnimatedCard`'s deal/flip machinery, which this static content doesn't need.
+Frontend only, reusing the existing static `PlayingCard` rather than `AnimatedCard`'s deal/flip
+machinery, which this content doesn't need.
 
-- **New `frontend/src/components/education/hand-rankings.jsx`** -- the 10 standard hand categories,
-  worst to best, each with a concrete 5-card example and a one-line description (e.g. Royal Flush:
-  `Th Jh Qh Kh Ah`). Inserted as a new "Hand rankings" section between "Your hand" and "The four
-  streets."
-- **New `frontend/src/components/education/street-progression.jsx`** -- a single worked hand shown
-  across all 4 streets: hero's 2 hole cards stay fixed while the board builds up 0 -> 3 -> 4 -> 5
-  cards, undealt slots rendered as dashed placeholders matching the live table's own empty-slot
-  pattern. Replaces the previous plain-text bullet list in "The four streets" (the section's intro
-  prose stays, just above the diagram).
-
-Run just this phase's tests:
+- **New `hand-rankings.jsx`** — the 10 standard categories, worst to best, each with a concrete
+  5-card example and one-line description.
+- **New `street-progression.jsx`** — a single worked hand across all 4 streets, board building 0
+  → 3 → 4 → 5 cards, undealt slots as dashed placeholders matching the live table. Replaces the
+  previous plain-text bullet list.
 
 ```bash
 cd frontend && npm run test -- how-to-play
@@ -1415,21 +1045,14 @@ cd frontend && npm run test -- how-to-play
 
 ### Phase 4: 13x13 starting-hand matrix, color-coded worst to best
 
-Frontend only. New `frontend/src/lib/starting-hand-strength.js` scores all 169 starting-hand
-classes with the standard, widely-cited **Chen Formula** (Bill Chen) rather than hand-typed equity
-numbers -- a deterministic heuristic (highest-card value, doubled for pairs, +2 suited, a gap
-penalty, +1 straight-making bonus for well-connected low/mid cards) that famously scores 7-2 offsuit
-among the very worst hands in the whole table, matching its own folklore reputation as poker's
-canonical "worst hand." `strengthColor(score)` interpolates a continuous red -> amber -> green scale
-across the table's own min/max score (not a threshold split like `stat-classifier.js`'s
-`classifyStat`, since this chart is inherently a full ranking).
+Frontend only. New `starting-hand-strength.js` scores all 169 starting-hand classes with the
+standard **Chen Formula** (highest-card value, doubled for pairs, +2 suited, gap penalty, +1
+straight-making bonus) — famously scores 7-2 offsuit among the worst hands, matching its folklore
+reputation. `strengthColor(score)` interpolates a continuous red → amber → green scale across the
+table's own min/max (a full ranking, not a threshold split).
 
-New `frontend/src/components/education/starting-hand-matrix.jsx` renders the classic 13x13 grid
-(pairs on the diagonal, suited above it, offsuit below), wrapped in `overflow-x-auto` so it doesn't
-force page-wide horizontal scroll at mobile widths. Inserted into `how-to-play-page.jsx` as a new
-"Starting hand strength" section, right after "The four streets."
-
-Run just this phase's tests:
+New `starting-hand-matrix.jsx` renders the classic 13x13 grid (pairs diagonal, suited above,
+offsuit below), wrapped in `overflow-x-auto`. Inserted after "The four streets."
 
 ```bash
 cd frontend && npm run test -- starting-hand how-to-play
@@ -1437,27 +1060,17 @@ cd frontend && npm run test -- starting-hand how-to-play
 
 ### Phase 5: stat tooltips on the Stats page
 
-Frontend only. New `frontend/src/components/ui/tooltip.jsx` -- a thin wrapper around `radix-ui`'s
-`Tooltip.Root/Trigger/Content` (already a dependency, no install needed), styled consistently with
-the other shadcn primitives in `components/ui/`. New `frontend/src/lib/stat-descriptions.js` --
-full-name + one-sentence definitions for every abbreviation on the page (VPIP, PFR, 3-bet, ATS,
-WTSD, W$SD, WWSF, aggression factor, Win/Loss/Split/Fold %), authored from scratch since nothing
-like this existed anywhere in the app before.
+Frontend only. New `tooltip.jsx` — a thin wrapper around `radix-ui`'s `Tooltip` primitives
+(already a dependency), styled to match the other shadcn components. New `stat-descriptions.js` —
+full-name + one-sentence definitions for every abbreviation on the page.
 
-Both `StatTile` and `StatRadialGauge` gain an optional `tooltip` prop -- when passed, a small
-hover-info icon renders next to the label, so the hover affordance lives in those two shared
-components once rather than being duplicated at every call site. `WinRateSummary` (which already
-renders its 4 tiles via `StatTile`) and `StatsPage` now pass a `tooltip` for every stat they render.
-The radar chart's SVG axis labels are out of scope (not styleable DOM elements) -- covered anyway,
-since they reuse the same VPIP/PFR/Aggression/Win rate/Fold rate terms already tooltipped just above
-the chart.
-
-Run just this phase's tests:
+Both `StatTile` and `StatRadialGauge` gain an optional `tooltip` prop — a hover-info icon renders
+next to the label when passed, so the affordance lives in those two components once.
+`WinRateSummary` and `StatsPage` now pass a tooltip for every stat.
 
 ```bash
 cd frontend && npm run test -- stat-tile stat-radial-gauge stats-page
 ```
 
-Phases 1-5 of Part 15 are now complete. A 6th, deferred phase -- animations and UI polish via the
-`magic`/`21st` MCP tools -- is on hold pending a working connection, and will get its own check-in
-once that's resolved.
+Phases 1-5 of Part 15 are now complete. A 6th, deferred phase (animations/UI polish via the
+`magic`/`21st` MCP tools) is on hold pending a working connection.

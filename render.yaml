@@ -37,8 +37,13 @@ services:
         value: HS256
       - key: JWT_EXPIRY_MINUTES
         value: '60'
-      # Placeholder -- update to the real Vercel URL once the frontend
-      # is deployed (see the runbook's "chicken-and-egg" step). Render
-      # redeploys automatically when an env var changes.
+      # The live frontend's origin. If re-bootstrapping this service from
+      # scratch, this starts as http://localhost:3000 until the frontend
+      # is deployed (see the runbook's "chicken-and-egg" step), then gets
+      # updated here to match -- Render redeploys automatically when an
+      # env var changes. Keeping this file in sync (rather than only
+      # updating it in the Render dashboard) avoids a future Blueprint
+      # re-sync silently reverting CORS back to localhost and locking out
+      # the real frontend.
       - key: CORS_ALLOWED_ORIGINS
-        value: http://localhost:3000
+        value: https://project-3-kelly-poker-simulator.vercel.app
