@@ -76,22 +76,22 @@ const LobbyPage = () => {
                     <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
                         <Card className="border-border bg-transparent ring-0">
                             <CardHeader>
-                                <CardTitle>Resume Your Session</CardTitle>
+                                <CardTitle>Resume Your Session:</CardTitle>
                                 <CardDescription>
-                                    {activeSession.num_opponents} opponent
+                                    {activeSession.num_opponents} Opponent
                                     {activeSession.num_opponents > 1 ? 's' : ''} &mdash;{' '}
                                     {formatCurrency(activeSession.current_bankroll)} bankroll
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-2">
                                 <Button onClick={() => navigate(`/sessions/${activeSession.id}/play`)}>
-                                    Keep playing
+                                    Keep Playing
                                 </Button>
                                 <Button
                                     variant="outline"
                                     onClick={() => navigate(`/sessions/${activeSession.id}/dashboard`)}
                                 >
-                                    View dashboard
+                                    View Dashboard
                                 </Button>
                             </CardContent>
                         </Card>
