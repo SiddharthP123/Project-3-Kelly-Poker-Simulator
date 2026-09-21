@@ -8,14 +8,18 @@
 const HERO_POSITION = { top: '86%', left: '50%' }
 
 const OPPONENT_LAYOUTS = {
-    1: [{ top: '10%', left: '50%' }],
+    // top: '14%' mirrors HERO_POSITION's own 86% across the table's
+    // center (50%) -- not an arbitrary '10%', which left too little
+    // clearance above the seat and let its hole cards clip the table's
+    // top edge instead of sitting fully on the felt.
+    1: [{ top: '14%', left: '50%' }],
     2: [
         { top: '22%', left: '18%' },
         { top: '22%', left: '82%' },
     ],
     3: [
         { top: '50%', left: '10%' },
-        { top: '10%', left: '50%' },
+        { top: '14%', left: '50%' },
         { top: '50%', left: '90%' },
     ],
     4: [
