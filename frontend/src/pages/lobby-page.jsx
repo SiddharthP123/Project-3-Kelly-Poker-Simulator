@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { SessionSetupForm } from '@/components/session/session-setup-form'
+import { AnimatedText } from '@/components/ui/animated-shiny-text'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useGameSession } from '@/hooks/use-game-session'
 import { formatCurrency } from '@/lib/format'
+
+const READY_UP_GRADIENT = 'linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.16), rgba(255,255,255,0.03))'
 
 const LobbyPage = () => {
     const navigate = useNavigate()
@@ -57,47 +61,61 @@ const LobbyPage = () => {
     }
 
     return (
-        <div className="flex min-h-svh flex-col">
+        <div className="relative flex min-h-svh flex-col overflow-hidden">
             <AppHeader />
-            <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-4">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <AnimatedText
+                    text="READY UP"
+                    gradientColors={READY_UP_GRADIENT}
+                    gradientAnimationDuration={2.5}
+                    textClassName="font-black tracking-wide text-[14vw] sm:text-[14vw] md:text-[14vw] lg:text-[14vw] xl:text-[14vw] leading-none whitespace-nowrap"
+                />
+            </div>
+            <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-4">
                 {!isCheckingForActiveSession && activeSession && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Resume your session</CardTitle>
-                            <CardDescription>
-                                {activeSession.num_opponents} opponent
-                                {activeSession.num_opponents > 1 ? 's' : ''} &mdash;{' '}
-                                {formatCurrency(activeSession.current_bankroll)} bankroll
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-2">
-                            <Button onClick={() => navigate(`/sessions/${activeSession.id}/play`)}>
-                                Keep playing
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={() => navigate(`/sessions/${activeSession.id}/dashboard`)}
-                            >
-                                View dashboard
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                        <Card className="border-border bg-transparent ring-0">
+                            <CardHeader>
+                                <CardTitle>Resume Your Session</CardTitle>
+                                <CardDescription>
+                                    {activeSession.num_opponents} opponent
+                                    {activeSession.num_opponents > 1 ? 's' : ''} &mdash;{' '}
+                                    {formatCurrency(activeSession.current_bankroll)} bankroll
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex flex-col gap-2">
+                                <Button onClick={() => navigate(`/sessions/${activeSession.id}/play`)}>
+                                    Keep playing
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => navigate(`/sessions/${activeSession.id}/dashboard`)}
+                                >
+                                    View dashboard
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </BorderBeam>
                 )}
 
                 {!isCheckingForActiveSession && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>{activeSession ? 'Start a new session' : 'Start a session'}</CardTitle>
-                            <CardDescription>Choose your opponent and stakes.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <SessionSetupForm
-                                onSubmit={handleCreateSession}
-                                isSubmitting={isSubmitting}
-                                errorMessage={errorMessage}
-                            />
-                        </CardContent>
-                    </Card>
+                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                        <Card className="border-border bg-transparent ring-0">
+                            <CardHeader>
+                                <CardTitle>
+                                    {activeSession ? 'Start Your New Session:' : 'Start Your Session:'}
+                                </CardTitle>
+                                <CardDescription>Choose your opponent and stakes.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <SessionSetupForm
+                                    onSubmit={handleCreateSession}
+                                    isSubmitting={isSubmitting}
+                                    errorMessage={errorMessage}
+                                />
+                            </CardContent>
+                        </Card>
+                    </BorderBeam>
                 )}
             </main>
         </div>
