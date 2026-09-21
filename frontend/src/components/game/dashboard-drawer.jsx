@@ -10,9 +10,12 @@ import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-
  * in from off-screen, with a vertical-text tab attached to its left edge
  * (visible even when closed, like a folder tab peeking out of a drawer).
  *
- * The tab sits at `left: -2.5rem` relative to the panel, so it rides
+ * The tab sits at a negative `left` relative to the panel, so it rides
  * along with the panel's own slide animation instead of needing separate
- * positioning logic for open vs. closed.
+ * positioning logic for open vs. closed. It's clipped into a trapezoid
+ * (full height at the edge attached to the panel, narrower at the tip
+ * sticking into the page) so it actually reads as a folder tab rather
+ * than a plain rectangular button.
  *
  * `openCount` remounts SessionDashboardPanel on every open (fresh `key`),
  * so the numbers reflect whatever's happened in the game since it was
@@ -41,14 +44,14 @@ const DashboardDrawer = ({ sessionId }) => {
             initial={false}
             transition={{ type: 'spring', stiffness: 300, damping: 32 }}
         >
-            <div className="absolute top-1/2 -left-10 -translate-y-1/2">
+            <div className="absolute top-1/2 -left-16 -translate-y-1/2">
                 <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} size="sm">
                     <button
                         type="button"
                         onClick={toggleOpen}
                         aria-label={isOpen ? 'Close dashboard' : 'Open dashboard'}
                         aria-expanded={isOpen}
-                        className="flex h-32 w-10 cursor-pointer items-center justify-center rounded-l-lg border border-r-0 border-white/15 bg-zinc-900 text-sm font-semibold tracking-wide text-foreground hover:bg-zinc-800"
+                        className="flex h-48 w-16 cursor-pointer items-center justify-center border border-white/15 bg-zinc-900 text-base font-semibold tracking-wide text-foreground hover:bg-zinc-800 [clip-path:polygon(0%_25%,100%_0%,100%_100%,0%_75%)]"
                     >
                         <span className="[writing-mode:vertical-rl]">Dashboard</span>
                     </button>
