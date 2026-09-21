@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-chart'
 import { HandHistoryTable } from '@/components/dashboard/hand-history-table'
-import { StatTile } from '@/components/dashboard/stat-tile'
+import { StatCard } from '@/components/dashboard/stat-card'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { useGameSession } from '@/hooks/use-game-session'
 import { useHandHistory } from '@/hooks/use-hand-history'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
@@ -78,13 +79,13 @@ const SessionDashboardPanel = ({ sessionId }) => {
             animate="visible"
         >
             <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
-                <StatTile
-                    label="Current bankroll"
+                <StatCard
+                    label="Current Bankroll:"
                     numericValue={session.current_bankroll}
                     formatValue={formatCurrency}
                 />
-                <StatTile
-                    label="Change from start"
+                <StatCard
+                    label="Change From Start:"
                     numericValue={bankrollDelta}
                     formatValue={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(n)}`}
                     variant={bankrollDelta > 0 ? 'good' : bankrollDelta < 0 ? 'critical' : 'neutral'}
@@ -92,17 +93,25 @@ const SessionDashboardPanel = ({ sessionId }) => {
             </motion.div>
 
             <motion.section variants={itemVariants} className="flex flex-col gap-3">
-                <h2 className="text-lg font-semibold">Bankroll growth</h2>
-                <BankrollGrowthChart series={bankrollSeries} startingBankroll={session.starting_bankroll} />
+                <h2 className="text-lg font-semibold">Bankroll Growth:</h2>
+                <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                    <div className="rounded-lg border border-border bg-transparent p-4">
+                        <BankrollGrowthChart
+                            series={bankrollSeries}
+                            startingBankroll={session.starting_bankroll}
+                            shaded
+                        />
+                    </div>
+                </BorderBeam>
             </motion.section>
 
             <motion.section variants={itemVariants} className="flex flex-col gap-3">
-                <h2 className="text-lg font-semibold">Win rate</h2>
+                <h2 className="text-lg font-semibold">Win Rate:</h2>
                 <WinRateSummary winRate={winRate} />
             </motion.section>
 
             <motion.section variants={itemVariants} className="flex flex-col gap-3">
-                <h2 className="text-lg font-semibold">Hand history</h2>
+                <h2 className="text-lg font-semibold">Hand History:</h2>
                 <HandHistoryTable hands={hands} />
             </motion.section>
         </motion.div>
