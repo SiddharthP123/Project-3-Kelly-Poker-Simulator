@@ -102,25 +102,25 @@ const StatsPage = () => {
                                 label="Sessions played"
                                 numericValue={stats.total_sessions}
                                 formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Sessions played']}
+                                tooltip={STAT_DESCRIPTIONS['Sessions Played:']}
                             />
                             <StatTile
                                 label="Sessions won"
                                 numericValue={stats.sessions_won}
                                 formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Sessions won']}
+                                tooltip={STAT_DESCRIPTIONS['Sessions Won:']}
                             />
                             <StatTile
                                 label="Hands played"
                                 numericValue={stats.total_hands}
                                 formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Hands played']}
+                                tooltip={STAT_DESCRIPTIONS['Hands Played:']}
                             />
                             <StatTile
                                 label="Hands won"
                                 numericValue={stats.hands_won}
                                 formatValue={(n) => `${Math.round(n)}`}
-                                tooltip={STAT_DESCRIPTIONS['Hands won']}
+                                tooltip={STAT_DESCRIPTIONS['Hands Won:']}
                             />
                             <StatTile
                                 label="All-time winnings"
@@ -133,19 +133,19 @@ const StatsPage = () => {
                                           ? 'critical'
                                           : 'neutral'
                                 }
-                                tooltip={STAT_DESCRIPTIONS['All-time winnings']}
+                                tooltip={STAT_DESCRIPTIONS['All-Time Winnings:']}
                             />
                             <StatTile
                                 label="Biggest win"
                                 value={stats.biggest_win != null ? formatCurrency(stats.biggest_win) : '—'}
                                 variant={stats.biggest_win != null ? 'good' : 'neutral'}
-                                tooltip={STAT_DESCRIPTIONS['Biggest win']}
+                                tooltip={STAT_DESCRIPTIONS['Biggest Win:']}
                             />
                             <StatTile
                                 label="Biggest loss"
                                 value={stats.biggest_loss != null ? formatCurrency(stats.biggest_loss) : '—'}
                                 variant={stats.biggest_loss != null ? 'critical' : 'neutral'}
-                                tooltip={STAT_DESCRIPTIONS['Biggest loss']}
+                                tooltip={STAT_DESCRIPTIONS['Biggest Loss:']}
                             />
                         </motion.div>
 
@@ -177,7 +177,7 @@ const StatsPage = () => {
                                     label="3-bet"
                                     value={stats.three_bet_rate}
                                     statKey="threeBet"
-                                    tooltip={STAT_DESCRIPTIONS['3-bet']}
+                                    tooltip={STAT_DESCRIPTIONS['3-Bet:']}
                                 />
                                 <StatRadialGauge
                                     label="ATS"
@@ -206,7 +206,7 @@ const StatsPage = () => {
                                 <StatTile
                                     label="Aggression factor"
                                     value={stats.aggression_factor != null ? stats.aggression_factor.toFixed(2) : '—'}
-                                    tooltip={STAT_DESCRIPTIONS['Aggression factor']}
+                                    tooltip={STAT_DESCRIPTIONS['Aggression Factor:']}
                                 />
                             </div>
                             <PlayStyleRadarChart stats={stats} />
