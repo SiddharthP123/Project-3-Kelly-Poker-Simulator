@@ -6,16 +6,17 @@ import { formatCurrency, formatPercent } from '@/lib/format'
  * kelly_recommended_stake) -- kellyRecommendedStake is null whenever
  * hero can check for free (nothing to call), since Kelly sizing needs a
  * real bet size to anchor to (see backend/services/game_engine.py's
- * _compute_hero_kelly_info). Styled dark/white to match the rest of the
- * game screen (ActionControls, the felt table) rather than the app's
- * default theme-dependent Card, since this only ever sits inside the
- * always-dark poker table screen.
+ * _compute_hero_kelly_info). No border/background of its own -- it's one
+ * section of the single merged card poker-table.jsx renders on the right
+ * (Your hand/Kelly sizing/Action controls used to each be their own
+ * separate card; now they're stacked sections inside one, divided by
+ * poker-table.jsx's own border-t separators).
  */
 const KellyStakePanel = ({ equity, kellyRecommendedStake, potSize, callAmount, bankroll }) => {
     const kellyPercentOfBankroll = bankroll > 0 && kellyRecommendedStake != null ? kellyRecommendedStake / bankroll : 0
 
     return (
-        <div className="flex w-full max-w-md flex-col gap-2 rounded-lg border border-white/15 bg-black/60 p-4 text-white">
+        <div className="flex w-full flex-col gap-2 text-white">
             <p className="text-sm font-medium text-white/70">Your equity &amp; Kelly-recommended sizing</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
