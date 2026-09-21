@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
+import { DashboardDrawer } from '@/components/game/dashboard-drawer'
 import { AppHeader } from '@/components/layout/app-header'
 import { PokerTable } from '@/components/poker/poker-table'
-import { Button } from '@/components/ui/button'
+import { AnimatedText } from '@/components/ui/animated-shiny-text'
 import { useGameSession } from '@/hooks/use-game-session'
+
+// Same treatment as lobby-page.jsx's "READY UP" watermark -- a subtle
+// sweeping gradient rather than a flat fill, so the giant background text
+// reads as texture rather than competing with the felt table on top of it.
+const HOLD_EM_GRADIENT = 'linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.16), rgba(255,255,255,0.03))'
 
 const GamePage = () => {
     const { sessionId } = useParams()
@@ -27,19 +33,23 @@ const GamePage = () => {
     }, [refreshSession])
 
     return (
-        <div className="flex min-h-svh flex-col">
+        <div className="relative flex min-h-svh flex-col overflow-hidden">
             <AppHeader />
-            <main className="flex-1 bg-zinc-950 p-4">
-                <div className="mx-auto mb-4 flex w-full max-w-7xl justify-end">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link to={`/sessions/${sessionId}/dashboard`}>View dashboard</Link>
-                    </Button>
-                </div>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <AnimatedText
+                    text="HOLD 'EM"
+                    gradientColors={HOLD_EM_GRADIENT}
+                    gradientAnimationDuration={2.5}
+                    textClassName="font-black tracking-wide text-[14vw] sm:text-[14vw] md:text-[14vw] lg:text-[14vw] xl:text-[14vw] leading-none whitespace-nowrap"
+                />
+            </div>
+            <main className="relative z-10 flex-1 p-4">
                 {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
                 {session && (
                     <PokerTable sessionId={sessionId} session={session} onSessionUpdate={refreshSession} />
                 )}
             </main>
+            <DashboardDrawer sessionId={sessionId} />
         </div>
     )
 }
