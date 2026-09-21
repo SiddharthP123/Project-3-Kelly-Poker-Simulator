@@ -213,19 +213,16 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     ]
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-            <div className="text-center text-white">
-                <p className="text-sm text-white/60">Bankroll</p>
-                <p className="text-2xl font-semibold">{formatCurrency(session.current_bankroll)}</p>
-            </div>
+        <div className="mx-auto flex w-[85%] max-w-7xl flex-col gap-6">
+            <h1 className="text-3xl font-bold text-white">Bankroll: {formatCurrency(session.current_bankroll)}</h1>
 
             {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
 
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end">
+            <div className="flex flex-col gap-6 rounded-xl border-2 border-white/25 p-6 lg:flex-row lg:items-end">
                 <div className="relative flex-1">
                     <div
                         key={hand?.id ?? 'idle'}
-                        className="relative aspect-[16/10] w-full rounded-[40px] border-8 border-amber-900 bg-gradient-to-b from-emerald-800 to-emerald-950 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4),0_0_40px_8px_rgba(16,185,129,0.35)]"
+                        className="relative aspect-[16/10] w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
                     >
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
@@ -305,45 +302,65 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                     )}
                 </div>
 
-                <div className="flex w-full flex-col items-center gap-4 lg:w-[440px] lg:shrink-0">
-                    {hand && (
-                        <div className="flex w-full flex-col items-center gap-3 rounded-lg border border-white/15 bg-black/60 p-6">
-                            <p className="text-sm font-medium text-white/70">Your hand</p>
-                            <div className="flex gap-3">
-                                {heroCards.length > 0
-                                    ? heroCards.map((card, index) => (
-                                          <AnimatedCard key={index} dealt card={card} size="lg" dealDelay={index * 0.06} />
-                                      ))
-                                    : [0, 1].map((index) => (
-                                          <div
-                                              key={index}
-                                              className="h-28 w-20 rounded-lg border border-dashed border-white/15"
-                                          />
-                                      ))}
+                <div className="flex w-full flex-col lg:w-[440px] lg:shrink-0">
+                    <div className="flex w-full flex-col gap-4 rounded-lg border border-white/15 bg-black/60 p-6">
+                        {hand ? (
+                            <div className="flex flex-col items-center gap-3">
+                                <p className="text-sm font-medium text-white/70">Your hand</p>
+                                <div className="flex gap-3">
+                                    {heroCards.length > 0
+                                        ? heroCards.map((card, index) => (
+                                              <AnimatedCard
+                                                  key={index}
+                                                  dealt
+                                                  card={card}
+                                                  size="lg"
+                                                  dealDelay={index * 0.06}
+                                              />
+                                          ))
+                                        : [0, 1].map((index) => (
+                                              <div
+                                                  key={index}
+                                                  className="h-28 w-20 rounded-lg border border-dashed border-white/15"
+                                              />
+                                          ))}
+                                </div>
+                                <p className="text-2xl font-semibold tabular-nums text-white">
+                                    {formatCurrency(hero?.stack ?? 0)}
+                                </p>
                             </div>
-                            <p className="text-2xl font-semibold tabular-nums text-white">
-                                {formatCurrency(hero?.stack ?? 0)}
+                        ) : (
+                            <p className="text-center text-sm text-white/50">
+                                Deal a hand to see your cards, equity, and actions here.
                             </p>
-                        </div>
-                    )}
+                        )}
 
-                    {isComplete && <HandResultBanner hand={hand} onDealNext={handleDeal} />}
-                    {hand && !isComplete && hand.legal_action_bounds && (
-                        <>
-                            <KellyStakePanel
-                                equity={hand.equity_at_decision}
-                                kellyRecommendedStake={hand.kelly_recommended_stake}
-                                potSize={hand.pot_size}
-                                callAmount={hand.legal_action_bounds.call_amount}
-                                bankroll={session.current_bankroll}
-                            />
-                            <ActionControls
-                                legalActionBounds={hand.legal_action_bounds}
-                                onAct={handleAct}
-                                isSubmitting={isSubmitting}
-                            />
-                        </>
-                    )}
+                        {isComplete && (
+                            <div className="border-t border-white/10 pt-4">
+                                <HandResultBanner hand={hand} onDealNext={handleDeal} />
+                            </div>
+                        )}
+                        {hand && !isComplete && hand.legal_action_bounds && (
+                            <>
+                                <div className="border-t border-white/10 pt-4">
+                                    <KellyStakePanel
+                                        equity={hand.equity_at_decision}
+                                        kellyRecommendedStake={hand.kelly_recommended_stake}
+                                        potSize={hand.pot_size}
+                                        callAmount={hand.legal_action_bounds.call_amount}
+                                        bankroll={session.current_bankroll}
+                                    />
+                                </div>
+                                <div className="border-t border-white/10 pt-4">
+                                    <ActionControls
+                                        legalActionBounds={hand.legal_action_bounds}
+                                        onAct={handleAct}
+                                        isSubmitting={isSubmitting}
+                                    />
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

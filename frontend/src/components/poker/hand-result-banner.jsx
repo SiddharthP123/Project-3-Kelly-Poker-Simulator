@@ -23,7 +23,7 @@ const HandResultBanner = ({ hand, onDealNext }) => {
     const nonFoldedRevealed = hand.players.filter((player) => !player.is_hero && player.hole_cards)
 
     return (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-white/15 bg-black/60 p-4 text-white">
+        <div className="flex flex-col items-center gap-3 text-white">
             <p className="text-lg font-semibold">{winnerLabel}</p>
 
             {nonFoldedRevealed.length === 0 && (

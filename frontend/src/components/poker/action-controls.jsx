@@ -39,7 +39,7 @@ const ActionControls = ({ legalActionBounds, onAct, isSubmitting }) => {
     }
 
     return (
-        <div className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-white/15 bg-black/60 p-4">
+        <div className="flex w-full flex-col gap-3">
             <div className="flex gap-2">
                 {can_fold && (
                     <Button variant="destructive" disabled={isSubmitting} onClick={() => onAct('fold')}>
