@@ -80,7 +80,7 @@ const LobbyPage = () => {
                                 <CardDescription>
                                     {activeSession.num_opponents} Opponent
                                     {activeSession.num_opponents > 1 ? 's' : ''} &mdash;{' '}
-                                    {formatCurrency(activeSession.current_bankroll)} bankroll
+                                    {formatCurrency(activeSession.current_bankroll)} Bankroll.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-2">
