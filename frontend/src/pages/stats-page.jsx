@@ -215,31 +215,41 @@ const StatsPage = () => {
                                 3-Bet/ATS), and W$SD spans cols 2-3 to land exactly between
                                 them. All three share row-start-1 because their column spans
                                 deliberately overlap -- without it, grid auto-placement would
-                                push the later items to their own row to avoid that overlap. */}
+                                push the later items to their own row to avoid that overlap.
+                                The overlap wrapper is pointer-events-none (with pointer-events-
+                                auto restored on the actual gauge) so its mostly-empty 2-column
+                                bounding box doesn't sit on top of, and swallow hover for, an
+                                earlier sibling's info-icon tooltip trigger underneath it. */}
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-                                <div className="flex justify-center sm:col-start-1 sm:row-start-1 sm:col-span-2">
-                                    <StatRadialGauge
-                                        label="WTSD:"
-                                        value={stats.wtsd_rate}
-                                        statKey="wtsd"
-                                        tooltip={STAT_DESCRIPTIONS.WTSD}
-                                    />
+                                <div className="flex justify-center sm:pointer-events-none sm:col-start-1 sm:row-start-1 sm:col-span-2">
+                                    <div className="pointer-events-auto">
+                                        <StatRadialGauge
+                                            label="WTSD:"
+                                            value={stats.wtsd_rate}
+                                            statKey="wtsd"
+                                            tooltip={STAT_DESCRIPTIONS.WTSD}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex justify-center sm:col-start-2 sm:row-start-1 sm:col-span-2">
-                                    <StatRadialGauge
-                                        label="W$SD:"
-                                        value={stats.won_at_showdown_rate}
-                                        statKey="wonAtShowdown"
-                                        tooltip={STAT_DESCRIPTIONS['W$SD']}
-                                    />
+                                <div className="flex justify-center sm:pointer-events-none sm:col-start-2 sm:row-start-1 sm:col-span-2">
+                                    <div className="pointer-events-auto">
+                                        <StatRadialGauge
+                                            label="W$SD:"
+                                            value={stats.won_at_showdown_rate}
+                                            statKey="wonAtShowdown"
+                                            tooltip={STAT_DESCRIPTIONS['W$SD']}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex justify-center sm:col-start-3 sm:row-start-1 sm:col-span-2">
-                                    <StatRadialGauge
-                                        label="WWSF:"
-                                        value={stats.won_when_saw_flop_rate}
-                                        statKey="wonWhenSawFlop"
-                                        tooltip={STAT_DESCRIPTIONS.WWSF}
-                                    />
+                                <div className="flex justify-center sm:pointer-events-none sm:col-start-3 sm:row-start-1 sm:col-span-2">
+                                    <div className="pointer-events-auto">
+                                        <StatRadialGauge
+                                            label="WWSF:"
+                                            value={stats.won_when_saw_flop_rate}
+                                            statKey="wonWhenSawFlop"
+                                            tooltip={STAT_DESCRIPTIONS.WWSF}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             <StatCard
