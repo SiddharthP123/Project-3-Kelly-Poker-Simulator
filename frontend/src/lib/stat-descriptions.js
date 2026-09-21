@@ -22,7 +22,7 @@ const STAT_DESCRIPTIONS = {
         'The percentage of hands, among those where you faced an existing preflop raise, where you re-raised (the third bet of the round, after the blind and the first raise).',
     ATS: 'Attempt To Steal: Of the hands where you were on the button and everyone folded to you preflop, the percentage where you raised to try to win the blinds uncontested.',
     WTSD: 'Went To Show Down: The percentage of all hands that reached a genuine showdown (more than one player still in at the river), rather than ending early when everyone but one player folded.',
-    W$SD: 'Won Money at ShowDown: The percentage of all hands that reached a real showdown, the percentage you won.',
+    W$SD: 'Won Money at Show Down: The percentage of all hands that reached a real showdown, the percentage you won.',
     WWSF: 'Won When Saw Flop: Of the hands where you did not fold preflop and a flop was actually dealt, the percentage you went on to win.',
     'Aggression Factor:':
         'The ratio of your raises to your calls across every street. A higher factor means you tend to raise rather than just call when you get involved in a pot.',

@@ -5,9 +5,9 @@ import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-char
 import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
-import { StatTile } from '@/components/dashboard/stat-tile'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
 import { AppHeader } from '@/components/layout/app-header'
+import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { useUserStats } from '@/hooks/use-user-stats'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { formatCurrency } from '@/lib/format'
@@ -84,7 +84,11 @@ const StatsPage = () => {
     }
 
     const allTimeWinningsVariant =
-        stats.cumulative_bankroll_change > 0 ? 'good' : stats.cumulative_bankroll_change < 0 ? 'critical' : 'neutral'
+        stats.cumulative_bankroll_change > 0
+            ? 'good'
+            : stats.cumulative_bankroll_change < 0
+              ? 'critical'
+              : 'neutral'
     const allTimeWinningsPct =
         stats.cumulative_starting_bankroll > 0
             ? (stats.cumulative_bankroll_change / stats.cumulative_starting_bankroll) * 100
@@ -173,105 +177,112 @@ const StatsPage = () => {
                         </motion.section>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-4">
-                            <h2 className="text-lg font-semibold">Play style</h2>
+                            <h2 className="text-lg font-semibold">Play Style:</h2>
                             <p className="text-sm text-muted-foreground">
-                                Green means the stat sits in a generally healthy range; red flags
-                                something worth a closer look -- neither is a hard rule, just a
-                                signal.
+                                Just to clarify, a green indicator means the stat sits in a
+                                generally healthy range, whereas red indicators flag something worth
+                                a closer look. Neither is a hard rule, just a signal.
                             </p>
-                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 <StatRadialGauge
-                                    label="VPIP"
+                                    label="VPIP:"
                                     value={stats.vpip_rate}
                                     statKey="vpip"
                                     tooltip={STAT_DESCRIPTIONS.VPIP}
                                 />
                                 <StatRadialGauge
-                                    label="PFR"
+                                    label="PFR:"
                                     value={stats.pfr_rate}
                                     statKey="pfr"
                                     tooltip={STAT_DESCRIPTIONS.PFR}
                                 />
                                 <StatRadialGauge
-                                    label="3-bet"
+                                    label="3-Bet:"
                                     value={stats.three_bet_rate}
                                     statKey="threeBet"
                                     tooltip={STAT_DESCRIPTIONS['3-Bet:']}
                                 />
                                 <StatRadialGauge
-                                    label="ATS"
+                                    label="ATS:"
                                     value={stats.ats_rate}
                                     statKey="ats"
                                     tooltip={STAT_DESCRIPTIONS.ATS}
                                 />
+                            </div>
+                            <div className="flex flex-wrap justify-center gap-4">
                                 <StatRadialGauge
-                                    label="WTSD"
+                                    label="WTSD:"
                                     value={stats.wtsd_rate}
                                     statKey="wtsd"
                                     tooltip={STAT_DESCRIPTIONS.WTSD}
                                 />
                                 <StatRadialGauge
-                                    label="W$SD"
+                                    label="W$SD:"
                                     value={stats.won_at_showdown_rate}
                                     statKey="wonAtShowdown"
                                     tooltip={STAT_DESCRIPTIONS['W$SD']}
                                 />
                                 <StatRadialGauge
-                                    label="WWSF"
+                                    label="WWSF:"
                                     value={stats.won_when_saw_flop_rate}
                                     statKey="wonWhenSawFlop"
                                     tooltip={STAT_DESCRIPTIONS.WWSF}
                                 />
-                                <StatTile
-                                    label="Aggression factor"
-                                    value={
-                                        stats.aggression_factor != null
-                                            ? stats.aggression_factor.toFixed(2)
-                                            : '—'
-                                    }
-                                    tooltip={STAT_DESCRIPTIONS['Aggression Factor:']}
-                                />
                             </div>
+                            <StatCard
+                                className="w-full"
+                                label="Aggression Factor:"
+                                value={
+                                    stats.aggression_factor != null
+                                        ? stats.aggression_factor.toFixed(2)
+                                        : '—'
+                                }
+                                tooltip={STAT_DESCRIPTIONS['Aggression Factor:']}
+                            />
                             <PlayStyleRadarChart stats={stats} />
                         </motion.section>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">
-                                Fold / aggression frequency by street
+                                Fold / Aggression Frequency By Street:
                             </h2>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 {['preflop', 'flop', 'turn', 'river'].map((street) => (
-                                    <div
-                                        key={street}
-                                        className="flex flex-col gap-1 rounded-lg border p-3 text-sm"
-                                    >
-                                        <p className="font-medium capitalize">{street}</p>
-                                        <p className="text-muted-foreground">
-                                            Fold:{' '}
-                                            {stats.fold_frequency_by_street[street] != null
-                                                ? `${(stats.fold_frequency_by_street[street] * 100).toFixed(0)}%`
-                                                : '—'}
-                                        </p>
-                                        <p className="text-muted-foreground">
-                                            Raise:{' '}
-                                            {stats.aggression_frequency_by_street[street] != null
-                                                ? `${(stats.aggression_frequency_by_street[street] * 100).toFixed(0)}%`
-                                                : '—'}
-                                        </p>
-                                    </div>
+                                    <BorderBeam key={street} {...EDUCATION_BORDER_BEAM_PROPS}>
+                                        <div className="flex flex-col gap-1 rounded-lg border border-border bg-transparent p-3 text-sm">
+                                            <p className="font-medium capitalize">{street}:</p>
+                                            <p className="text-muted-foreground">
+                                                Fold:{' '}
+                                                {stats.fold_frequency_by_street[street] != null
+                                                    ? `${(stats.fold_frequency_by_street[street] * 100).toFixed(0)}%`
+                                                    : '—'}
+                                            </p>
+                                            <p className="text-muted-foreground">
+                                                Raise:{' '}
+                                                {stats.aggression_frequency_by_street[street] != null
+                                                    ? `${(stats.aggression_frequency_by_street[street] * 100).toFixed(0)}%`
+                                                    : '—'}
+                                            </p>
+                                        </div>
+                                    </BorderBeam>
                                 ))}
                             </div>
                         </motion.section>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-3">
-                            <h2 className="text-lg font-semibold">Bankroll over time</h2>
+                            <h2 className="text-lg font-semibold">Bankroll Over Time:</h2>
                             <p className="text-sm text-muted-foreground">
-                                Every session, chronologically -- a jump back down is a new session
-                                starting at its own bankroll, not a loss.
+                                Every session, chronologically recorded. A jump back down is a new
+                                session starting at its own bankroll, not a loss.
                             </p>
-                            <BankrollGrowthChart
-                                series={computeBankrollSeries(stats.bankroll_history)}
-                            />
+                            <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                                <div className="rounded-lg border border-border bg-transparent p-4">
+                                    <BankrollGrowthChart
+                                        series={computeBankrollSeries(stats.bankroll_history)}
+                                        shaded
+                                    />
+                                </div>
+                            </BorderBeam>
                         </motion.section>
                     </motion.div>
                 )}

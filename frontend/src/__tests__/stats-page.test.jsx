@@ -96,10 +96,10 @@ describe('StatsPage', () => {
         renderStatsPage()
 
         await waitFor(() => expect(screen.getByText('Sessions Played:')).toBeInTheDocument())
-        expect(screen.getByLabelText('What is VPIP?')).toBeInTheDocument()
-        expect(screen.getByLabelText('What is PFR?')).toBeInTheDocument()
-        expect(screen.getByLabelText('What is WTSD?')).toBeInTheDocument()
-        expect(screen.getByLabelText('What is Aggression factor?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is VPIP:?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is PFR:?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is WTSD:?')).toBeInTheDocument()
+        expect(screen.getByLabelText('What is Aggression Factor:?')).toBeInTheDocument()
     })
 
     it('shows a dash for aggression factor and a play-style prompt when there is no hand data yet', async () => {
