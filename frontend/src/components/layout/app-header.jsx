@@ -12,7 +12,7 @@ const AppHeader = () => {
             <Link to="/" className="text-xl font-bold">
                 <RainbowText>Sid's Kelly Criterion Poker Simulator</RainbowText>
             </Link>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <Link to="/how-to-play" className="hover:text-foreground">
                     Beginner's Guide
                 </Link>
@@ -22,7 +22,7 @@ const AppHeader = () => {
                 {user && (
                     <>
                         <Link to="/stats" className="hover:text-foreground">
-                            Stats
+                            Statistics
                         </Link>
                         <Link to="/profile" className="hover:text-foreground">
                             Profile
