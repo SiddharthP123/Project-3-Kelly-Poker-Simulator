@@ -300,12 +300,12 @@ const ProfilePage = () => {
                         </BorderBeam>
                     </div>
 
-                    <div className="flex flex-col gap-4 rounded-xl bg-white p-6 text-zinc-900">
-                        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-                        {savedMessage && <p className="text-sm text-green-600">{savedMessage}</p>}
-                        <Button type="submit" disabled={isSaving} className="bg-zinc-900 text-white hover:bg-zinc-900/90">
+                    <div className="flex flex-col items-center gap-2">
+                        <Button type="submit" disabled={isSaving}>
                             {isSaving ? 'Saving...' : 'Save Profile'}
                         </Button>
+                        {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
+                        {savedMessage && <p className="text-center text-sm text-green-600">{savedMessage}</p>}
                     </div>
                 </form>
 
