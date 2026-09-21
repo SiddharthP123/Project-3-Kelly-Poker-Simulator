@@ -1,16 +1,13 @@
 import { motion } from 'framer-motion'
-import { InfoIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { BankrollGrowthChart } from '@/components/dashboard/bankroll-growth-chart'
 import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
+import { StatCard } from '@/components/dashboard/stat-card'
 import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { WinRateSummary } from '@/components/dashboard/win-rate-summary'
 import { AppHeader } from '@/components/layout/app-header'
-import { AnimatedNumber } from '@/components/ui/animated-number'
-import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useUserStats } from '@/hooks/use-user-stats'
 import { computeBankrollSeries } from '@/lib/compute-bankroll-series'
 import { formatCurrency } from '@/lib/format'
@@ -27,50 +24,6 @@ const itemVariants = {
     hidden: { opacity: 0, y: 16 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 }
-
-// Matches stat-tile.jsx's own good/critical/neutral tokens -- kept local
-// (not reused from StatTile) since the top summary cards need this page's
-// translucent BorderBeam look, not StatTile's shared solid-card style
-// (still used by the Play Style and Hand Results tiles further down).
-const STAT_CARD_VARIANT_CLASSES = {
-    good: 'text-green-600',
-    critical: 'text-red-600',
-    neutral: 'text-foreground',
-}
-
-/**
- * `subtext`, when passed, renders inline next to the value (not on its own
- * line) so a card that needs an extra detail -- e.g. All-Time Winnings'
- * percent-of-starting-bankroll -- stays the same height as a plain card.
- */
-const StatCard = ({ label, value, numericValue, formatValue, variant = 'neutral', tooltip, subtext, className }) => (
-    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className={className}>
-        <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-transparent p-4">
-            <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">{label}</p>
-                {tooltip && (
-                    <Tooltip>
-                        <TooltipTrigger
-                            aria-label={`What is ${label}?`}
-                            className="text-muted-foreground/60 hover:text-muted-foreground"
-                        >
-                            <InfoIcon className="size-3.5" />
-                        </TooltipTrigger>
-                        <TooltipContent>{tooltip}</TooltipContent>
-                    </Tooltip>
-                )}
-            </div>
-            <p className={`flex items-baseline gap-2 text-xl font-semibold tabular-nums ${STAT_CARD_VARIANT_CLASSES[variant]}`}>
-                {numericValue != null && formatValue ? (
-                    <AnimatedNumber value={numericValue} format={formatValue} />
-                ) : (
-                    value
-                )}
-                {subtext && <span className="text-xs font-normal text-muted-foreground">{subtext}</span>}
-            </p>
-        </div>
-    </BorderBeam>
-)
 
 /**
  * Account-wide statistics, aggregated across every session the user has
@@ -140,8 +93,9 @@ const StatsPage = () => {
     return (
         <div className="flex min-h-svh flex-col">
             <AppHeader />
-            <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-4">
-                <h1 className="text-xl font-semibold">Basic Statistics:</h1>
+            <main className="mx-auto mt-8 flex w-full max-w-2xl flex-col gap-8 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
+                <h1 className="text-3xl font-bold">Your Detailed Statistics:</h1>
+                <h2 className="text-lg font-semibold">Basic Statistics:</h2>
 
                 {stats.total_sessions === 0 ? (
                     <p className="text-center text-muted-foreground">
@@ -215,7 +169,7 @@ const StatsPage = () => {
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-3">
                             <h2 className="text-lg font-semibold">Hand Results:</h2>
-                            <WinRateSummary winRate={winRate} />
+                            <WinRateSummary winRate={winRate} translucent />
                         </motion.section>
 
                         <motion.section variants={itemVariants} className="flex flex-col gap-4">

@@ -224,7 +224,7 @@ const ProfilePage = () => {
         <div className="flex min-h-svh flex-col">
             <AppHeader />
             <main className="mx-auto mt-8 flex w-full max-w-2xl flex-col gap-8 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
-                <h1 className="text-xl font-semibold">Your Profile:</h1>
+                <h1 className="text-3xl font-bold">Your Profile:</h1>
 
                 <div className="flex items-center gap-4">
                     <Popover open={isPhotoMenuOpen} onOpenChange={setIsPhotoMenuOpen}>
