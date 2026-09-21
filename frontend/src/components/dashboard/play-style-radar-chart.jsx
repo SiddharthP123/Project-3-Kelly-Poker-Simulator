@@ -69,9 +69,14 @@ const PlayStyleRadarChart = ({ stats }) => {
     }
 
     return (
-        <ChartContainer config={chartConfig} className="h-64 w-full">
+        <ChartContainer config={chartConfig} className="h-96 w-full">
             <RadarChart data={buildPlayStyleData(stats)}>
-                <PolarGrid />
+                {/* An explicit stroke (not recharts' own default "#ccc")
+                    bypasses ChartContainer's CSS rule that dims "#ccc" grid
+                    lines down to the barely-visible --border token -- the
+                    grid is the chart's own axis structure, not incidental
+                    chrome, so it should read clearly against the felt. */}
+                <PolarGrid stroke="rgba(255,255,255,0.35)" />
                 <PolarAngleAxis dataKey="axis" />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Radar
