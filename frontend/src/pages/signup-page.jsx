@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { AppFooter } from '@/components/layout/app-footer'
 import { AnimatedText } from '@/components/ui/animated-shiny-text'
 import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { Button } from '@/components/ui/button'
@@ -37,7 +38,7 @@ const SignupPage = () => {
     }
 
     return (
-        <div className="relative flex min-h-svh items-center justify-center overflow-hidden p-4">
+        <div className="relative flex min-h-svh flex-col overflow-hidden">
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <AnimatedText
                     text="WELCOME"
@@ -46,7 +47,8 @@ const SignupPage = () => {
                     textClassName="font-black tracking-wide text-[14vw] sm:text-[14vw] md:text-[14vw] lg:text-[14vw] xl:text-[14vw] leading-none whitespace-nowrap"
                 />
             </div>
-            <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className="relative z-10 w-full max-w-sm">
+            <div className="relative z-10 flex flex-1 items-center justify-center p-4">
+                <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className="w-full max-w-sm">
                 <Card className="w-full border-border bg-transparent ring-0">
                     <CardHeader>
                         <CardTitle>Create An Account:</CardTitle>
@@ -105,7 +107,9 @@ const SignupPage = () => {
                         </form>
                     </CardContent>
                 </Card>
-            </BorderBeam>
+                </BorderBeam>
+            </div>
+            <AppFooter />
         </div>
     )
 }

@@ -1,3 +1,4 @@
+import { AppFooter } from '@/components/layout/app-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { GlossaryEntry } from '@/components/education/glossary-entry'
 import { HandRankings } from '@/components/education/hand-rankings'
@@ -205,6 +206,7 @@ const HowToPlayPage = () => (
                 </dl>
             </section>
         </main>
+        <AppFooter />
     </div>
 )
 

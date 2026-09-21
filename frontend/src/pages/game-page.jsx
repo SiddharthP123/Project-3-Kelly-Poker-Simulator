@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { DashboardDrawer } from '@/components/game/dashboard-drawer'
+import { AppFooter } from '@/components/layout/app-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { PokerTable } from '@/components/poker/poker-table'
 import { AnimatedText } from '@/components/ui/animated-shiny-text'
@@ -49,6 +50,7 @@ const GamePage = () => {
                     <PokerTable sessionId={sessionId} session={session} onSessionUpdate={refreshSession} />
                 )}
             </main>
+            <AppFooter />
             <DashboardDrawer sessionId={sessionId} />
         </div>
     )
