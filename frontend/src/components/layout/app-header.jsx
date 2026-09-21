@@ -8,7 +8,7 @@ const AppHeader = () => {
     const { user, logout } = useAuth()
 
     return (
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-background/70 px-6 py-4 backdrop-blur-md">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-background/70 px-6 py-6 backdrop-blur-md">
             <Link to="/" className="text-xl font-bold">
                 <RainbowText>Sid's Kelly Criterion Poker Simulator</RainbowText>
             </Link>
@@ -29,7 +29,7 @@ const AppHeader = () => {
                         </Link>
                         <span>{user.display_name || user.email}</span>
                         <Button variant="outline" size="sm" onClick={logout}>
-                            Log out
+                            Log Out
                         </Button>
                     </>
                 )}
