@@ -232,6 +232,11 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                         key={hand?.id ?? 'idle'}
                         className="relative h-full w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
                     >
+                        {/* Purely decorative -- a second, inset rounded border
+                            echoing the felt's own outer edge, like the inlay
+                            line on a real poker table. */}
+                        <div className="pointer-events-none absolute inset-6 rounded-2xl border border-dotted border-white/30" />
+
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
                                 key={seatEntry.seat_index}
@@ -321,7 +326,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                             <div className="flex flex-1 flex-col items-center justify-center gap-3">
                                 {hand ? (
                                     <>
-                                        <p className="text-sm font-medium text-white/70">Your Hand:</p>
+                                        <p className="text-3xl font-bold text-white">Your Hand:</p>
                                         <div className="flex gap-3">
                                             {heroCards.length > 0
                                                 ? heroCards.map((card, index) => (
