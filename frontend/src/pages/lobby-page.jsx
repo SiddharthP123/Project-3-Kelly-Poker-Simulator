@@ -87,7 +87,7 @@ const LobbyPage = () => {
                 {!isCheckingForActiveSession && (
                     <Card>
                         <CardHeader>
-                            <CardTitle>{activeSession ? 'Start A New Session:' : 'Start A Session:'}</CardTitle>
+                            <CardTitle>{activeSession ? 'Start Your New Session:' : 'Start Your Session:'}</CardTitle>
                             <CardDescription>Choose your opponent and stakes.</CardDescription>
                         </CardHeader>
                         <CardContent>
