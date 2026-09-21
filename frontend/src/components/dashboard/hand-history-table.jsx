@@ -34,7 +34,7 @@ const HandHistoryTable = ({ hands }) => {
                     <TableHead>#</TableHead>
                     <TableHead>Your Hand:</TableHead>
                     <TableHead>Opponent's Hand:</TableHead>
-                    <TableHead>Result:</TableHead>
+                    <TableHead className="text-center">Result:</TableHead>
                     <TableHead className="text-right">Delta:</TableHead>
                 </TableRow>
             </TableHeader>
@@ -53,7 +53,7 @@ const HandHistoryTable = ({ hands }) => {
                             <TableCell>{hand.hand_number}</TableCell>
                             <TableCell>{hero.hole_cards}</TableCell>
                             <TableCell>{opponentHoleCards}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                                 <Badge variant={result.variant}>{result.label}</Badge>
                             </TableCell>
                             <TableCell

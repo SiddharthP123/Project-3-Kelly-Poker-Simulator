@@ -19,17 +19,18 @@ import { SessionDashboardPanel } from '@/components/game/session-dashboard-panel
  * along with the panel's own slide animation instead of needing separate
  * positioning logic for open vs. closed. It's clipped into a trapezoid
  * (full height at the edge attached to the panel, narrower at the tip
- * sticking into the page) with each corner chamfered by a few px -- a
- * lightweight stand-in for a true rounded fillet, since clip-path's
- * polygon() only draws straight edges -- so the tab reads as a folder
- * tab rather than a sharp-cornered rectangle.
+ * sticking into the page) with each corner chamfered -- a lightweight
+ * stand-in for a true rounded fillet, since clip-path's polygon() only
+ * draws straight edges -- so the tab reads as a folder tab rather than a
+ * sharp-cornered rectangle. The label text is rotated 180deg on top of
+ * vertical-rl so it reads bottom-to-top (the "D" sits at the bottom).
  *
  * `openCount` remounts SessionDashboardPanel on every open (fresh `key`),
  * so the numbers reflect whatever's happened in the game since it was
  * last pulled out, without polling while it's closed.
  */
 const TAB_CLIP_PATH =
-    '[clip-path:polygon(92.5%_1.88%,100%_3.13%,100%_96.88%,92.5%_98.13%,7.5%_76.88%,0%_71.88%,0%_28.13%,7.5%_23.13%)]'
+    '[clip-path:polygon(85%_3.75%,100%_6.25%,100%_93.75%,85%_96.25%,15%_78.75%,0%_68.75%,0%_31.25%,15%_21.25%)]'
 
 const DashboardDrawer = ({ sessionId }) => {
     const [isOpen, setIsOpen] = useState(false)
@@ -65,7 +66,7 @@ const DashboardDrawer = ({ sessionId }) => {
                         aria-expanded={isOpen}
                         className={`flex h-48 w-16 cursor-pointer items-center justify-center border border-white/15 bg-zinc-900 text-base font-semibold tracking-wide text-foreground hover:bg-zinc-800 ${TAB_CLIP_PATH}`}
                     >
-                        <span className="[writing-mode:vertical-rl]">Dashboard</span>
+                        <span className="rotate-180 [writing-mode:vertical-rl]">Dashboard:</span>
                     </button>
                 </div>
 

@@ -107,7 +107,7 @@ const SessionDashboardPanel = ({ sessionId }) => {
 
             <motion.section variants={itemVariants} className="flex flex-col gap-3">
                 <h2 className="text-lg font-semibold">Win Rate:</h2>
-                <WinRateSummary winRate={winRate} />
+                <WinRateSummary winRate={winRate} translucent />
             </motion.section>
 
             <motion.section variants={itemVariants} className="flex flex-col gap-3">
