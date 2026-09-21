@@ -32,22 +32,27 @@ const HandHistoryTable = ({ hands }) => {
             <TableHeader>
                 <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>Your hand</TableHead>
-                    <TableHead>Opponents</TableHead>
-                    <TableHead>Result</TableHead>
-                    <TableHead className="text-right">Delta</TableHead>
+                    <TableHead>Your Hand:</TableHead>
+                    <TableHead>Opponent's Hand:</TableHead>
+                    <TableHead>Result:</TableHead>
+                    <TableHead className="text-right">Delta:</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {resolvedHands.map((hand) => {
                     const hero = hand.players.find((player) => player.is_hero)
                     const result = describeResult(hand)
+                    const opponentHoleCards =
+                        hand.players
+                            .filter((player) => !player.is_hero && player.hole_cards)
+                            .map((player) => player.hole_cards)
+                            .join(', ') || '—'
 
                     return (
                         <TableRow key={hand.id}>
                             <TableCell>{hand.hand_number}</TableCell>
                             <TableCell>{hero.hole_cards}</TableCell>
-                            <TableCell>{hand.players.length - 1}</TableCell>
+                            <TableCell>{opponentHoleCards}</TableCell>
                             <TableCell>
                                 <Badge variant={result.variant}>{result.label}</Badge>
                             </TableCell>

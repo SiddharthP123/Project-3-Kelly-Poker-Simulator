@@ -230,7 +230,7 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                 <div className="relative h-full flex-1">
                     <div
                         key={hand?.id ?? 'idle'}
-                        className="relative mx-auto aspect-[16/15] h-full max-w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
+                        className="relative h-full w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
                     >
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
