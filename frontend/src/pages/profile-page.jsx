@@ -7,6 +7,7 @@ import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/use-auth'
 import { useUserStats } from '@/hooks/use-user-stats'
@@ -154,6 +155,7 @@ const ProfilePage = () => {
     const [avatarUrl, setAvatarUrl] = useState('')
     const [avatarSource, setAvatarSource] = useState(null)
     const [avatarError, setAvatarError] = useState('')
+    const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false)
     const [stats, setStats] = useState(null)
     const [isSaving, setIsSaving] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
@@ -225,7 +227,48 @@ const ProfilePage = () => {
                 <h1 className="text-xl font-semibold">Your Profile:</h1>
 
                 <div className="flex items-center gap-4">
-                    <AvatarPreview avatarUrl={avatarUrl} fallbackLabel={displayName || user.email} />
+                    <Popover open={isPhotoMenuOpen} onOpenChange={setIsPhotoMenuOpen}>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                aria-label="Change profile photo"
+                                className="cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0"
+                            >
+                                <AvatarPreview avatarUrl={avatarUrl} fallbackLabel={displayName || user.email} />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="flex w-52 flex-col gap-2 bg-zinc-700 text-zinc-50">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setAvatarSource('web')
+                                    setIsPhotoMenuOpen(false)
+                                }}
+                            >
+                                Upload From Web
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    fileInputRef.current?.click()
+                                    setIsPhotoMenuOpen(false)
+                                }}
+                            >
+                                Upload From Computer
+                            </Button>
+                        </PopoverContent>
+                    </Popover>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarFile}
+                    />
                     <div>
                         <p className="font-medium">{displayName || user.email}</p>
                         <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -233,38 +276,12 @@ const ProfilePage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                        <Label>Profile Photo:</Label>
-                        <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
-                            <div className="flex flex-wrap gap-2 rounded-lg p-3">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setAvatarSource(avatarSource === 'web' ? null : 'web')}
-                                >
-                                    From The Web
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    Upload A Photo
-                                </Button>
-                            </div>
-                        </BorderBeam>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleAvatarFile}
-                        />
-                        {avatarSource === 'web' && (
+                    {avatarSource === 'web' && (
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="avatar-url">Photo URL:</Label>
                             <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
                                 <Input
+                                    id="avatar-url"
                                     type="url"
                                     placeholder="https://..."
                                     value={avatarUrl}
@@ -272,9 +289,9 @@ const ProfilePage = () => {
                                     maxLength={2048}
                                 />
                             </BorderBeam>
-                        )}
-                        {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
-                    </div>
+                        </div>
+                    )}
+                    {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
 
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="display-name">Display Name:</Label>
@@ -301,7 +318,7 @@ const ProfilePage = () => {
                     </div>
 
                     <div className="flex flex-col items-center gap-2">
-                        <Button type="submit" disabled={isSaving}>
+                        <Button type="submit" disabled={isSaving} className="w-full">
                             {isSaving ? 'Saving...' : 'Save Profile'}
                         </Button>
                         {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
