@@ -57,7 +57,7 @@ const ActionControls = ({ legalActionBounds, onAct, isSubmitting }) => {
                 <div className="flex items-end gap-2">
                     <div className="flex flex-1 flex-col gap-2">
                         <Label htmlFor="raise-amount" className="text-white/70">
-                            Raise to
+                            Raise To:
                         </Label>
                         <Input
                             id="raise-amount"
@@ -69,12 +69,8 @@ const ActionControls = ({ legalActionBounds, onAct, isSubmitting }) => {
                             className="text-white placeholder:text-white/40"
                         />
                     </div>
-                    <Button
-                        variant="outline"
-                        disabled={isSubmitting}
-                        onClick={() => setRaiseTo(String(max_raise_to))}
-                    >
-                        All-in
+                    <Button disabled={isSubmitting} onClick={() => setRaiseTo(String(max_raise_to))}>
+                        All-In
                     </Button>
                     <Button disabled={isSubmitting} onClick={handleRaise}>
                         Raise

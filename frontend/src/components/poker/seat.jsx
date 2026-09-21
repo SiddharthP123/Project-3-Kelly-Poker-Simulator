@@ -59,7 +59,7 @@ const Seat = ({ player, isButton, dealDelay = 0, actionLabel }) => {
                                 key={index}
                                 dealt
                                 card={card}
-                                size="md"
+                                size="lg"
                                 dealDelay={dealDelay + index * 0.06}
                             />
                         ))}

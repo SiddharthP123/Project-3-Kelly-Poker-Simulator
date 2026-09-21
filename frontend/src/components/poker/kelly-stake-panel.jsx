@@ -17,22 +17,22 @@ const KellyStakePanel = ({ equity, kellyRecommendedStake, potSize, callAmount, b
 
     return (
         <div className="flex w-full flex-col gap-2 text-white">
-            <p className="text-sm font-medium text-white/70">Your equity &amp; Kelly-recommended sizing</p>
+            <p className="text-sm font-medium text-white/70">Your Equity and Kelly-Recommended Sizing:</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                    <p className="text-white/50">Pot</p>
+                    <p className="text-white/50">Pot:</p>
                     <p className="font-semibold">{formatCurrency(potSize)}</p>
                 </div>
                 <div>
-                    <p className="text-white/50">Facing bet</p>
+                    <p className="text-white/50">Facing Bet:</p>
                     <p className="font-semibold">{callAmount > 0 ? formatCurrency(callAmount) : 'Free to check'}</p>
                 </div>
                 <div>
-                    <p className="text-white/50">Your equity</p>
+                    <p className="text-white/50">Your Equity:</p>
                     <p className="font-semibold">{formatPercent(equity)}</p>
                 </div>
                 <div>
-                    <p className="text-white/50">Kelly-recommended stake</p>
+                    <p className="text-white/50">Kelly-Recommended Stake:</p>
                     <p className="font-semibold">
                         {kellyRecommendedStake != null
                             ? `${formatCurrency(kellyRecommendedStake)} (${formatPercent(kellyPercentOfBankroll)} of bankroll)`

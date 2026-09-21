@@ -114,7 +114,7 @@ describe('PokerTable', () => {
         await waitFor(() => screen.getByRole('button', { name: /call \$1/i }))
         await userEvent.click(screen.getByRole('button', { name: /call \$1/i }))
 
-        await waitFor(() => expect(screen.getByText('You won!')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText('"You" Won!')).toBeInTheDocument())
         expect(onSessionUpdate).toHaveBeenCalled()
     })
 

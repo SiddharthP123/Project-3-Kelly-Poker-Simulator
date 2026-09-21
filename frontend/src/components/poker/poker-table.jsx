@@ -49,8 +49,8 @@ const formatActionLabel = (action) => {
 const SeatPlaceholder = ({ label }) => (
     <div className="flex flex-col items-center gap-1.5">
         <div className="flex gap-1">
-            <div className="h-20 w-14 rounded-lg border border-dashed border-white/15" />
-            <div className="h-20 w-14 rounded-lg border border-dashed border-white/15" />
+            <div className="h-28 w-20 rounded-lg border border-dashed border-white/15" />
+            <div className="h-28 w-20 rounded-lg border border-dashed border-white/15" />
         </div>
         <div className="rounded-md border border-dashed border-white/15 px-3 py-1.5 text-center">
             <span className="text-xs font-medium text-white/40">{label}</span>
@@ -214,18 +214,18 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
     ]
 
     return (
-        <div className="mx-auto flex w-[97%] max-w-7xl flex-col gap-6">
+        <div className="mx-auto flex w-[97%] max-w-[1600px] flex-col gap-6">
             <h1 className="text-center text-3xl font-bold text-white">
                 Bankroll: <span className="text-white/50">{formatCurrency(session.current_bankroll)}</span>
             </h1>
 
             {errorMessage && <p className="text-center text-sm text-destructive">{errorMessage}</p>}
 
-            <div className="flex flex-col gap-6 rounded-xl border-2 border-white/25 p-6 lg:flex-row lg:items-start">
+            <div className="flex flex-col gap-8 rounded-xl border-2 border-white/25 p-8 lg:flex-row lg:items-stretch">
                 <div className="relative flex-1">
                     <div
                         key={hand?.id ?? 'idle'}
-                        className="relative aspect-[16/12] w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
+                        className="relative aspect-[16/15] w-full rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-800/55 to-emerald-950/55 shadow-[inset_0_2px_8px_rgba(0,0,0,0.4)]"
                     >
                         {(hand ? hand.players : idleSeats).map((seatEntry) => (
                             <div
@@ -261,20 +261,20 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                                     </motion.p>
                                 </AnimatePresence>
                             )}
-                            <div className="flex gap-2">
+                            <div className="flex gap-3">
                                 {Array.from({ length: BOARD_SLOTS }, (_, index) => index).map((index) =>
                                     boardCards[index] ? (
                                         <AnimatedCard
                                             key={index}
                                             dealt
                                             card={boardCards[index]}
-                                            size="md"
+                                            size="lg"
                                             dealDelay={index * 0.15}
                                         />
                                     ) : (
                                         <div
                                             key={index}
-                                            className="h-20 w-14 rounded-lg border border-dashed border-white/15"
+                                            className="h-28 w-20 rounded-lg border border-dashed border-white/15"
                                         />
                                     ),
                                 )}
@@ -306,38 +306,45 @@ const PokerTable = ({ sessionId, session, onSessionUpdate }) => {
                 </div>
 
                 <div className="flex w-full flex-col lg:w-[440px] lg:shrink-0">
-                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
-                        <div className="flex w-full flex-col gap-4 rounded-lg border border-white/15 bg-black/30 p-6">
-                            {hand ? (
-                                <div className="flex flex-col items-center gap-3">
-                                    <p className="text-sm font-medium text-white/70">Your hand</p>
-                                    <div className="flex gap-3">
-                                        {heroCards.length > 0
-                                            ? heroCards.map((card, index) => (
-                                                  <AnimatedCard
-                                                      key={index}
-                                                      dealt
-                                                      card={card}
-                                                      size="lg"
-                                                      dealDelay={index * 0.06}
-                                                  />
-                                              ))
-                                            : [0, 1].map((index) => (
-                                                  <div
-                                                      key={index}
-                                                      className="h-28 w-20 rounded-lg border border-dashed border-white/15"
-                                                  />
-                                              ))}
-                                    </div>
-                                    <p className="text-2xl font-semibold tabular-nums text-white">
-                                        {formatCurrency(hero?.stack ?? 0)}
+                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS} className="h-full">
+                        <div className="flex h-full w-full flex-col gap-4 rounded-lg border border-white/15 bg-black/30 p-6">
+                            {/* flex-1 so this section absorbs whatever height the
+                                rest of the card doesn't use, keeping the card's
+                                own top AND bottom edges aligned with the felt
+                                table beside it (see the row's items-stretch)
+                                instead of leaving a gap below a shorter card. */}
+                            <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                                {hand ? (
+                                    <>
+                                        <p className="text-sm font-medium text-white/70">Your Hand:</p>
+                                        <div className="flex gap-3">
+                                            {heroCards.length > 0
+                                                ? heroCards.map((card, index) => (
+                                                      <AnimatedCard
+                                                          key={index}
+                                                          dealt
+                                                          card={card}
+                                                          size="xl"
+                                                          dealDelay={index * 0.06}
+                                                      />
+                                                  ))
+                                                : [0, 1].map((index) => (
+                                                      <div
+                                                          key={index}
+                                                          className="h-[8.75rem] w-[6.25rem] rounded-lg border border-dashed border-white/15"
+                                                      />
+                                                  ))}
+                                        </div>
+                                        <p className="text-2xl font-semibold tabular-nums text-white">
+                                            {formatCurrency(hero?.stack ?? 0)}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-center text-sm text-white/50">
+                                        Deal a hand to see your cards, equity, and actions here.
                                     </p>
-                                </div>
-                            ) : (
-                                <p className="text-center text-sm text-white/50">
-                                    Deal a hand to see your cards, equity, and actions here.
-                                </p>
-                            )}
+                                )}
+                            </div>
 
                             {isComplete && (
                                 <div className="border-t border-white/10 pt-4">

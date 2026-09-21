@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { formatCurrency, formatPersonaLabel } from '@/lib/format'
+import { formatCurrency } from '@/lib/format'
 
 /**
  * hand: a completed HandResponse (street === 'complete'). Winners are
@@ -14,11 +14,7 @@ const HandResultBanner = ({ hand, onDealNext }) => {
     const isSplit = hand.winners.length > 1
     const deltaColorClass = hero.net_result > 0 ? 'text-green-500' : hero.net_result < 0 ? 'text-red-500' : ''
 
-    const winnerLabel = isSplit
-        ? 'Split pot'
-        : heroWon
-          ? 'You won!'
-          : `${formatPersonaLabel(hand.players.find((p) => p.seat_index === hand.winners[0])?.persona || 'Opponent')} won`
+    const winnerLabel = isSplit ? 'Split pot' : heroWon ? '"You" Won!' : '"You" Lost!'
 
     const nonFoldedRevealed = hand.players.filter((player) => !player.is_hero && player.hole_cards)
 
@@ -37,7 +33,7 @@ const HandResultBanner = ({ hand, onDealNext }) => {
                 {formatCurrency(hero.net_result)}
             </p>
 
-            <Button onClick={onDealNext}>Deal next hand</Button>
+            <Button onClick={onDealNext}>Deal Next Hand</Button>
         </div>
     )
 }
