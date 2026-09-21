@@ -64,7 +64,7 @@ const StatRadialGauge = ({ label, value, statKey, tooltip }) => {
                         >
                             <InfoIcon className="size-3" />
                         </TooltipTrigger>
-                        <TooltipContent>{tooltip}</TooltipContent>
+                        <TooltipContent className="bg-zinc-700 text-zinc-50">{tooltip}</TooltipContent>
                     </Tooltip>
                 )}
             </div>

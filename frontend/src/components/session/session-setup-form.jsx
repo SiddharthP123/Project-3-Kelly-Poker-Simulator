@@ -79,7 +79,7 @@ const SessionSetupForm = ({ onSubmit, isSubmitting, errorMessage }) => {
             </div>
             {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
             <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Starting...' : 'Start Session:'}
+                {isSubmitting ? 'Starting...' : 'Start Session'}
             </Button>
         </form>
     )

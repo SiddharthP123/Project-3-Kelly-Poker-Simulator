@@ -3,10 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { PlayStyleRadarChart } from '@/components/dashboard/play-style-radar-chart'
 import { StatRadialGauge } from '@/components/dashboard/stat-radial-gauge'
 import { AppHeader } from '@/components/layout/app-header'
-import { AnimatedText } from '@/components/ui/animated-shiny-text'
 import { BorderBeam, EDUCATION_BORDER_BEAM_PROPS } from '@/components/ui/border-beam'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,9 +12,6 @@ import { useAuth } from '@/hooks/use-auth'
 import { useUserStats } from '@/hooks/use-user-stats'
 import { formatCurrency } from '@/lib/format'
 import { STAT_DESCRIPTIONS } from '@/lib/stat-descriptions'
-
-const ABOUT_YOU_GRADIENT =
-    'linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.16), rgba(255,255,255,0.03))'
 
 // Matches stat-tile.jsx's own good/critical/neutral tokens -- kept local
 // (not reused from StatTile) since the "Player Snapshot" tiles need this
@@ -145,10 +140,10 @@ const compressImageFileToDataUrl = (file) =>
  * save, not a partial patch: every field is sent on every submit, and an
  * emptied field clears that column server-side (see UpdateProfileRequest).
  *
- * The avatar picker offers three ways to set avatar_url -- paste a web
- * URL, upload a file, or capture a photo -- rather than one always-visible
- * URL field, but all three still resolve to that same single string
- * column; there's no separate image-storage path on the backend.
+ * The avatar picker offers two ways to set avatar_url -- paste a web URL
+ * or upload a file -- rather than one always-visible URL field, but both
+ * still resolve to that same single string column; there's no separate
+ * image-storage path on the backend.
  */
 const ProfilePage = () => {
     const { user, updateProfile } = useAuth()
@@ -165,7 +160,6 @@ const ProfilePage = () => {
     const [savedMessage, setSavedMessage] = useState('')
 
     const fileInputRef = useRef(null)
-    const cameraInputRef = useRef(null)
 
     useEffect(() => {
         if (user) {
@@ -225,17 +219,9 @@ const ProfilePage = () => {
     }
 
     return (
-        <div className="relative flex min-h-svh flex-col overflow-hidden">
+        <div className="flex min-h-svh flex-col">
             <AppHeader />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <AnimatedText
-                    text="ABOUT YOU"
-                    gradientColors={ABOUT_YOU_GRADIENT}
-                    gradientAnimationDuration={2.5}
-                    textClassName="font-black tracking-wide text-[14vw] sm:text-[14vw] md:text-[14vw] lg:text-[14vw] xl:text-[14vw] leading-none whitespace-nowrap"
-                />
-            </div>
-            <main className="relative z-10 mx-auto mt-8 flex w-full max-w-2xl flex-col gap-8 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
+            <main className="mx-auto mt-8 flex w-full max-w-2xl flex-col gap-8 rounded-xl border-2 border-white/25 p-6 pb-16 sm:mt-12 sm:p-10">
                 <h1 className="text-xl font-semibold">Your Profile:</h1>
 
                 <div className="flex items-center gap-4">
@@ -247,10 +233,10 @@ const ProfilePage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
-                        <div className="flex flex-col gap-3 rounded-lg border border-border bg-transparent p-4">
-                            <Label>Profile Photo:</Label>
-                            <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-2">
+                        <Label>Profile Photo:</Label>
+                        <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                            <div className="flex flex-wrap gap-2 rounded-lg p-3">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -267,31 +253,17 @@ const ProfilePage = () => {
                                 >
                                     Upload A Photo
                                 </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => cameraInputRef.current?.click()}
-                                >
-                                    Take A Photo
-                                </Button>
                             </div>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleAvatarFile}
-                            />
-                            <input
-                                ref={cameraInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="user"
-                                className="hidden"
-                                onChange={handleAvatarFile}
-                            />
-                            {avatarSource === 'web' && (
+                        </BorderBeam>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarFile}
+                        />
+                        {avatarSource === 'web' && (
+                            <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
                                 <Input
                                     type="url"
                                     placeholder="https://..."
@@ -299,39 +271,42 @@ const ProfilePage = () => {
                                     onChange={(event) => setAvatarUrl(event.target.value)}
                                     maxLength={2048}
                                 />
-                            )}
-                            {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
-                        </div>
-                    </BorderBeam>
+                            </BorderBeam>
+                        )}
+                        {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+                    </div>
 
-                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
-                        <div className="flex flex-col gap-2 rounded-lg border border-border bg-transparent p-4">
-                            <Label htmlFor="display-name">Display Name:</Label>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="display-name">Display Name:</Label>
+                        <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
                             <Input
                                 id="display-name"
                                 value={displayName}
                                 onChange={(event) => setDisplayName(event.target.value)}
                                 maxLength={100}
                             />
-                        </div>
-                    </BorderBeam>
+                        </BorderBeam>
+                    </div>
 
-                    <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
-                        <div className="flex flex-col gap-2 rounded-lg border border-border bg-transparent p-4">
-                            <Label htmlFor="bio">Bio/About:</Label>
-                            <Textarea id="bio" value={bio} onChange={(event) => setBio(event.target.value)} maxLength={500} />
-                        </div>
-                    </BorderBeam>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="bio">Bio/About:</Label>
+                        <BorderBeam {...EDUCATION_BORDER_BEAM_PROPS}>
+                            <Textarea
+                                id="bio"
+                                value={bio}
+                                onChange={(event) => setBio(event.target.value)}
+                                maxLength={500}
+                            />
+                        </BorderBeam>
+                    </div>
 
-                    <Card>
-                        <CardContent className="flex flex-col gap-4 pt-6">
-                            {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-                            {savedMessage && <p className="text-sm text-green-600">{savedMessage}</p>}
-                            <Button type="submit" disabled={isSaving}>
-                                {isSaving ? 'Saving...' : 'Save Profile:'}
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <div className="flex flex-col gap-4 rounded-xl bg-white p-6 text-zinc-900">
+                        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+                        {savedMessage && <p className="text-sm text-green-600">{savedMessage}</p>}
+                        <Button type="submit" disabled={isSaving} className="bg-zinc-900 text-white hover:bg-zinc-900/90">
+                            {isSaving ? 'Saving...' : 'Save Profile'}
+                        </Button>
+                    </div>
                 </form>
 
                 {stats && stats.total_sessions > 0 && (
