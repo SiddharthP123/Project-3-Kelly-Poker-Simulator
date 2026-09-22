@@ -1,4 +1,4 @@
-# Project 3: Kelly Poker Simulator
+# Project 3: Kelly Poker Simulator.
 
 A progressive, self-taught, full-stack project that builds a Texas Hold'em simulator with AI
 opponents and a virtual bankroll manager sized using the **Kelly Criterion**.
@@ -6,10 +6,10 @@ opponents and a virtual bankroll manager sized using the **Kelly Criterion**.
 No real money is involved anywhere — this is a simulator/game against AI opponents using a
 virtual bankroll only.
 
-## Live demo
+## Live Demo:
 
 **[project-3-kelly-poker-simulator.vercel.app](https://project-3-kelly-poker-simulator.vercel.app)**
-— open it directly, no invite or waitlist needed.
+— open it directly; no invite or waitlist needed.
 
 Sign up with any email + password to play (real authentication, not a shared demo login). The
 backend (Render's free tier) spins down after ~15 minutes idle, so the very first request after
@@ -24,7 +24,7 @@ card counter turned quant hedge fund manager — is the classic example). Poker 
 self-contained environment (known edge, known odds, discrete bets) to learn the formula before
 applying the same thinking to a portfolio.
 
-## Tech stack
+## Tech Stack:
 
 - **Backend:** FastAPI (Python)
 - **Frontend:** React
@@ -34,9 +34,9 @@ applying the same thinking to a portfolio.
 Early parts (1–7) are plain Python with no web stack — the goal is to get the game/math logic
 solid and tested before any API or UI is built on top of it.
 
-## Progress
+## Progress:
 
-| Part | Topic | Status |
+| Part: | Topic: | Status: |
 |---|---|---|
 | 1 | Cards, Deck & Dealing | ✅ Done |
 | 2 | Hand Evaluator | ✅ Done |
@@ -54,7 +54,7 @@ solid and tested before any API or UI is built on top of it.
 | 14 | Player Education, Advanced Stats & Table Polish | ✅ Done |
 | 15 | Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes | ✅ Done |
 
-## Setup
+## Setup:
 
 ```bash
 python3 -m venv venv
@@ -72,7 +72,7 @@ pre-commit install
 
 ---
 
-## Part 1: Cards, Deck & Dealing
+## Part 1: Cards, Deck & Dealing:
 
 **Key insight:** a deck is just 52 unique `(rank, suit)` pairs. Treat it as a mutable pool you
 *remove* cards from as you deal — once a card is dealt it physically leaves the deck, so no
@@ -89,7 +89,7 @@ pytest tests/test_cards.py tests/test_deck.py -v
 
 ---
 
-## Part 2: Hand Evaluator
+## Part 2: Hand Evaluator:
 
 **Key insight:** every 5-card hand reduces to one sortable tuple: `(category, tiebreakers)`.
 Once every hand is a tuple, deciding a winner is just Python's `max()` — no special-cased "flush
@@ -113,7 +113,7 @@ pytest tests/test_hand_evaluator.py -v
 
 ---
 
-## Part 3: Monte Carlo Equity Calculator
+## Part 3: Monte Carlo Equity Calculator:
 
 **Key insight:** we don't know opponents' hole cards or the rest of the board, but we know the
 pool they could come from. Instead of solving win probability analytically, repeatedly deal the
@@ -137,7 +137,7 @@ pytest tests/test_equity.py -v
 
 ---
 
-## Part 4: Expected Value & Pot Odds
+## Part 4: Expected Value & Pot Odds:
 
 **Key insight:** pot odds convert a bet size into a probability threshold. Facing pot `P` and bet
 `B`, calling breaks even when `equity * P == (1 - equity) * B` — solving for equity gives `B / (P
@@ -161,7 +161,7 @@ pytest tests/test_ev.py -v
 
 ---
 
-## Part 5: The Kelly Criterion
+## Part 5: The Kelly Criterion:
 
 **The finance parallel the whole project is built around.** Kelly answers "what fraction of your
 bankroll to stake on a repeatable bet with a known edge" — the identical formula sizes positions
@@ -192,7 +192,7 @@ pytest tests/test_kelly.py -v
 
 ---
 
-## Part 6: Bankroll Simulator
+## Part 6: Bankroll Simulator:
 
 **Key insight:** the "aggressive growth vs. safety" trade-off in bet sizing is a direct
 mathematical consequence of how the same sequence of wins/losses compounds under different stake
@@ -227,7 +227,7 @@ PYTHONPATH=. python3 scripts/plot_bankroll_comparison.py
 
 ---
 
-## Part 7: Simple AI Opponents
+## Part 7: Simple AI Opponents:
 
 **Key insight:** every persona differs only in *which numbers* it plugs into the same
 fold/call/raise vocabulary. `TightAggressiveBot` and `LoosePassiveBot` are the same
@@ -253,7 +253,7 @@ pytest tests/test_bots.py -v
 
 ---
 
-## Part 8: Backend API (FastAPI)
+## Part 8: Backend API (FastAPI):
 
 **Key insight:** turning the engine into a service is mostly translation, not new logic — every
 calculator endpoint (`/api/equity`, `/api/ev`, `/api/kelly/*`, `/api/hand-evaluator/*`,
@@ -285,7 +285,7 @@ favour of `Base.metadata.create_all()` (no production data to protect yet); `Use
 this part (`GameSession.user_id` nullable, Part 9 owns signup); plain SQLAlchemy + separate
 Pydantic schemas (not SQLModel), Postgres via Docker Desktop + docker-compose.
 
-### Running it locally
+### Running It Locally:
 
 ```bash
 # One-time: install Docker Desktop, then from the project root:
@@ -303,7 +303,7 @@ pytest tests/backend/ -v   # no Docker/Postgres needed
 
 ---
 
-## Part 9: Authentication & Security
+## Part 9: Authentication & Security:
 
 **Key insight:** JWTs are stateless — the server never stores issued tokens, only verifies
 signature and expiry per request, so `get_current_user` is a fast dependency with no DB round
@@ -343,7 +343,7 @@ session → login with correct/wrong credentials.
 pytest tests/backend/test_auth_router.py -v
 ```
 
-### Security hardening pass
+### Security Hardening Pass:
 
 Before Part 10, the backend was audited against this project's standing
 `CLAUDE-CODE-INSTRUCTIONS.md` security checklist (Firebase/Next.js items translated to their
@@ -377,7 +377,7 @@ pytest tests/backend/test_security_hardening.py -v
 
 ---
 
-## Part 10: Frontend (React)
+## Part 10: Frontend (React):
 
 **Key insight:** the backend from Parts 8-9 couldn't actually be *played* — `play_hand`
 auto-decided hero's action with a hardcoded bot, since there was no UI to ask a human. Before any
@@ -392,7 +392,7 @@ in `HandHistoryResponse`, so a human hasn't structurally earned the right to see
 refresh — verified live: refreshing mid-decision reloads the same hole cards and equity rather
 than losing or silently redealing the hand.
 
-### Stack
+### Stack:
 
 Plain React (not Next.js, per the brief) + Vite + JavaScript + Tailwind CSS v4 + shadcn/ui (Radix
 base, Nova preset) + `react-router-dom` + Recharts (via shadcn's `chart.jsx`) + Vitest + React
@@ -400,7 +400,7 @@ Testing Library — following the project's standing conventions wherever stack-
 (kebab-case files, `cn()`, functional components, hooks in `hooks/`), translating Next.js-specific
 ones (ESLint → `oxlint`, the faster Rust-based linter Vite scaffolds by default).
 
-### What's built
+### What's Built:
 
 - **Auth** — `lib/api-client.js` (fetch-based, no axios; 401 → clear token + redirect, 422 →
   flattens FastAPI's validation error shape, 429 → surfaces `Retry-After`),
@@ -421,7 +421,7 @@ ones (ESLint → `oxlint`, the faster Rust-based linter Vite scaffolds by defaul
   highlighted line nearly invisible — fixed with an explicit blue (`#2a78d6` light / `#3987e5`
   dark) instead of the theme token.
 
-### Testing
+### Testing:
 
 Vitest + React Testing Library, no Playwright/E2E yet (deferred to Part 11, once there's a real
 deployed URL). 28 tests: API client auth/401/422/429 handling, auth context, protected-route
@@ -450,7 +450,7 @@ npm run dev
 
 ---
 
-## Part 11: Deployment
+## Part 11: Deployment:
 
 **Key insight:** the two services deploy independently — backend to Render (Docker container,
 portable, mirrors local exactly), frontend to Vercel (native Vite build) — but have a real
@@ -464,14 +464,14 @@ This part adds no application code, only deployment config (`Dockerfile`, `.dock
 was built and run locally first — confirmed it serves `/health` with no live DB connection (by
 design) and picks up a runtime-injected `$PORT`, matching Render's behavior.
 
-### Usage (once deployed)
+### Usage (Once Deployed):
 
 Visit the Vercel URL, sign up, start a session (pick an opponent persona and starting bankroll),
 and play: deal a hand, see equity and the live Kelly-recommended stake, fold/call/raise, see the
 resolution, check the dashboard for bankroll growth and win rate. First request after 15 minutes
 of inactivity is slow (10-30s) — Render's free tier cold-starts on idle. Expected, not a bug.
 
-### Testing
+### Testing:
 
 ```bash
 pytest -q                                    # 182 tests, no Postgres needed (SQLite-backed)
@@ -481,7 +481,7 @@ pre-commit run --all-files                   # all three checks, same as CI
 
 `.github/workflows/ci.yml` runs the same three checks on every push and PR targeting `main`.
 
-### Deployment runbook
+### Deployment Runbook:
 
 Creating the Render/Vercel accounts needs your own browser session and credentials, so this part
 is prepared and verified but not something that runs itself. Steps to go live:
@@ -530,7 +530,7 @@ matters if this needs to stay reliably live.
 
 ---
 
-## Part 12: Real Poker Engine (multi-street, multi-opponent, side pots)
+## Part 12: Real Poker Engine (multi-street, multi-opponent, side pots):
 
 **Why this part exists:** Parts 8-10 deliberately simplified the game to one fixed $100 pot/bet,
 one opponent, and one hero decision resolving the whole hand instantly — enough to prove the
@@ -550,7 +550,7 @@ A second trick: the human-facing 5-verb vocabulary (fold/check/call/bet/raise) c
 engine primitives — `fold`/`match`/`raise_to`. Check is "match a bet of $0"; bet is "raise from
 $0." One comparison validates any action; friendlier verbs are just an API-layer label.
 
-### Phase 1: `poker/betting.py` — pure Python, no DB/HTTP
+### Phase 1: `poker/betting.py` — pure Python, no DB/HTTP:
 
 Built and unit-tested standalone before touching a database or endpoint, same pattern as every
 `poker/` module.
@@ -571,7 +571,7 @@ Built and unit-tested standalone before touching a database or endpoint, same pa
 pytest tests/test_betting.py -v
 ```
 
-### Phase 2: `poker/hand_flow.py` — the orchestrator
+### Phase 2: `poker/hand_flow.py` — the orchestrator:
 
 Ties Phase 1's betting engine to real bot decisions across a full hand, still pure Python.
 
@@ -592,7 +592,7 @@ Ties Phase 1's betting engine to real bot decisions across a full hand, still pu
 pytest tests/test_hand_flow.py -v
 ```
 
-### Phase 3: `poker/bots.py` — 10 opponent personas
+### Phase 3: `poker/bots.py` — 10 opponent personas:
 
 Expands 4 personas to 10, all reusing `ThresholdBot(fold_below, raise_above, raise_sizing)`
 unchanged — every new persona is just different threshold values:
@@ -617,7 +617,7 @@ of the 10 eligible, no repeats), taking an explicit `random.Random` for reproduc
 pytest tests/test_bots.py -v
 ```
 
-### Phase 4: database schema for multi-street, multi-opponent hands
+### Phase 4: database schema for multi-street, multi-opponent hands:
 
 Three new tables, purely additive (safe under `create_tables.py`'s `create_all()`):
 
@@ -638,7 +638,7 @@ for a fresh database, but a genuine manual migration step against the live produ
 `GameSession.bot_persona` and the old single-opponent card columns are left untouched (vestigial
 for new sessions, still valid for old ones) — cleanup is a future step, not part of this one.
 
-### Phase 5a: backend wiring (heads-up-focused)
+### Phase 5a: backend wiring (heads-up-focused):
 
 Rewrites `backend/services/game_engine.py` and `backend/routers/game.py` on `poker/hand_flow.py`,
 replacing the single fixed-pot/one-opponent model. A hand now spans multiple HTTP requests, so
@@ -672,7 +672,7 @@ pytest tests/backend/test_game_router.py -v
 `backend/migrations/run_migrations.py` (see `backend/migrations/README.md`) — the new columns
 don't exist on the already-live tables until then.
 
-### Phase 5b: multi-way side-pot testing through the API
+### Phase 5b: multi-way side-pot testing through the API:
 
 Proves a genuine multi-layer side pot forms and resolves end-to-end through the HTTP API — deal →
 hero shoves all-in → persistence → reconstruction → showdown.
@@ -694,7 +694,7 @@ drifts by ~1.5e-11 (ordinary float64 noise). Full account in `tasks/lessons.md`.
 pytest tests/backend/test_game_router.py::test_multiway_all_in_produces_a_genuine_side_pot_end_to_end -v
 ```
 
-### Phase 6a: modern poker table (frontend, static)
+### Phase 6a: modern poker table (frontend, static):
 
 Rewrites the game screen for 1-4 opponents and real multi-street play. Deliberately
 black/white — only suit glyphs use color, everything else on the table stays grayscale regardless
@@ -726,7 +726,7 @@ Verified via the full component test suite (33 tests), `oxlint`, and a productio
 looking at a rendered browser this session. Worth a manual visual pass, per this project's own
 lesson (Part 10's two real UI bugs both passed unit tests and were only caught manually).
 
-### Phase 6b: dealing/flip/chip animations
+### Phase 6b: dealing/flip/chip animations:
 
 Adds Framer Motion (~42KB gzipped, signed off before this phase started) and animates the
 transitions Phase 6a only ever snapped between:
@@ -745,7 +745,7 @@ transitions Phase 6a only ever snapped between:
 cd frontend && npm run test -- animated-card poker-table
 ```
 
-## Part 12 Phase 7: account-wide statistics page
+## Part 12 Phase 7: account-wide statistics page:
 
 An aggregation across every session a user has ever played, distinct from the per-session
 dashboard (Part 10).
@@ -764,7 +764,7 @@ pytest tests/backend/test_user_stats_router.py -v
 cd frontend && npm run test -- stats-page
 ```
 
-## Part 12 Phase 8: re-polish Kelly-recommended-stake UI
+## Part 12 Phase 8: re-polish Kelly-recommended-stake UI:
 
 Wires hero's live equity and Kelly-recommended stake into the multi-street flow — the columns
 Phase 4 added were real but nothing populated them; every hero decision from Phase 5 onward went
@@ -794,14 +794,14 @@ Part 12 (all 8 phases) is now complete — the full multi-street, multi-opponent
 wiring, animated frontend, account-wide stats, and live Kelly sizing are built and tested
 end-to-end.
 
-## Part 13: Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics
+## Part 13: Table Redesign, Balance/Performance Tuning, Profile & Play-Style Analytics:
 
 Driven by hands-on feedback from the deployed Part 12 app: table visual/layout requests, a
 missing "what did the opponent just do" indicator, interaction latency, a game-balance question
 about starting stacks, and two new features (a deeper profile, richer stats with a play-style
 spider chart).
 
-### Phase 1: table redesign + opponent action display
+### Phase 1: table redesign + opponent action display:
 
 Frontend only.
 
@@ -818,7 +818,7 @@ Frontend only.
 cd frontend && npm run test -- poker-table
 ```
 
-### Phase 2: bot stack balancing + performance
+### Phase 2: bot stack balancing + performance:
 
 Both in `backend/services/game_engine.py`.
 
@@ -833,7 +833,7 @@ Both in `backend/services/game_engine.py`.
 pytest tests/backend/test_game_router.py -v
 ```
 
-### Phase 3: profile page
+### Phase 3: profile page:
 
 - **`users` table** gains nullable `bio`/`avatar_url` (see
   `backend/migrations/0002_part13_profile_columns.sql` for the live-database step). `avatar_url`
@@ -851,7 +851,7 @@ pytest tests/backend/test_auth_router.py -v
 cd frontend && npm run test -- profile-page use-auth
 ```
 
-### Phase 4: play-style analytics, spider chart, account-wide bankroll chart
+### Phase 4: play-style analytics, spider chart, account-wide bankroll chart:
 
 - **`compute_user_stats`** gains two play-style metrics computed from hero's own persisted
   `HandAction` rows (hero is always `seat_index == 0`):
@@ -880,13 +880,13 @@ cd frontend && npm run test -- play-style-radar-chart stats-page profile-page
 
 Part 13 (all 4 phases) is now complete.
 
-## Part 14: Player Education, Advanced Stats & Table Polish
+## Part 14: Player Education, Advanced Stats & Table Polish:
 
 Driven by feedback on the deployed Part 13 app: a first-time-player tutorial and Kelly education
 page, a much richer stat set (PFR, 3-bet%, ATS%, per-street fold/aggression frequency, showdown
 stats), and visual polish.
 
-### Phase 1: header + table visual polish
+### Phase 1: header + table visual polish:
 
 Frontend only.
 
@@ -900,7 +900,7 @@ Frontend only.
 cd frontend && npm run test -- poker-table animated-card
 ```
 
-### Phase 2: "How to Play" tutorial page
+### Phase 2: "How to Play" tutorial page:
 
 New public page (`/how-to-play`), registered outside `ProtectedRoute` so a new visitor can read
 it before signing up. Static content: hole cards vs. the board, the four streets, check/call/
@@ -914,7 +914,7 @@ every nav link was gated behind `user &&`); Login/Signup also link to it.
 cd frontend && npm run test -- how-to-play
 ```
 
-### Phase 3: Kelly Criterion education page
+### Phase 3: Kelly Criterion education page:
 
 New public page (`/kelly-criterion`), same treatment as Phase 2. Content: the formula explained
 term by term, two worked examples (from `poker/kelly.py`'s own tests), a small hand-rolled bar
@@ -926,7 +926,7 @@ Ed Thorp framing. Reuses Phase 2's `GlossaryEntry`.
 cd frontend && npm run test -- kelly-criterion
 ```
 
-### Phase 4: position/sequence-aware preflop stats — PFR, 3-bet%, ATS%
+### Phase 4: position/sequence-aware preflop stats — PFR, 3-bet%, ATS%:
 
 Backend only. These need to know how much action happened before hero's own preflop decision — a
 different, sequence-aware computation from Phase 4 (Part 13)'s flat filters, so it gets a shared
@@ -948,7 +948,7 @@ straight to the test DB) rather than retrying live deals.
 pytest tests/backend/test_user_stats_router.py -v
 ```
 
-### Phase 5: showdown, per-street, and volume stats
+### Phase 5: showdown, per-street, and volume stats:
 
 Backend only, same file.
 
@@ -967,7 +967,7 @@ board, since these scenarios need exact multi-seat/multi-street control.
 pytest tests/backend/test_user_stats_router.py -v
 ```
 
-### Phase 6: stats dashboard overhaul — charts + performance coloring
+### Phase 6: stats dashboard overhaul — charts + performance coloring:
 
 Frontend only, the final phase of Part 14.
 
@@ -988,7 +988,7 @@ cd frontend && npm run test -- stat-classifier stat-radial-gauge play-style-rada
 
 Part 14 (all 6 phases) is now complete.
 
-## Part 15: Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes
+## Part 15: Illustrated Education, Dark-Mode Pages, Stat Tooltips & Table Layout Fixes:
 
 Driven by feedback on the deployed Part 14 app: text-only education content (no illustrated hand
 rankings, no visual street example, no starting-hand chart), stats abbreviations with no in-app
@@ -996,7 +996,7 @@ explanation, and two table layout bugs (a seat rendering off the felt, hero pane
 the table bottom). A separate ask (animations via the `magic` MCP server) is on hold pending a
 working API key.
 
-### Phase 1: table layout fixes — seat position, bottom alignment, glow border
+### Phase 1: table layout fixes — seat position, bottom alignment, glow border:
 
 Frontend only.
 
@@ -1012,7 +1012,7 @@ Frontend only.
 cd frontend && npm run test -- poker-table
 ```
 
-### Phase 2: dark mode for Login, Signup, How to Play, and Kelly Criterion
+### Phase 2: dark mode for Login, Signup, How to Play, and Kelly Criterion:
 
 Frontend only. No global theme toggle needed: `index.css` already shipped a complete, unused
 `.dark { ... }` token override as shadcn boilerplate, and all four pages were already built from
@@ -1028,7 +1028,7 @@ cd frontend && npm run test -- login-page signup-page how-to-play kelly-criterio
 also gained an explicit `background={{ fill: 'var(--muted)' }}`, since it isn't wrapped in the
 shared `ChartContainer` that neutralizes recharts' hardcoded light-gray default elsewhere.
 
-### Phase 3: illustrated hand rankings + illustrated preflop/flop/turn/river example
+### Phase 3: illustrated hand rankings + illustrated preflop/flop/turn/river example:
 
 Frontend only, reusing the existing static `PlayingCard` rather than `AnimatedCard`'s deal/flip
 machinery, which this content doesn't need.
@@ -1043,7 +1043,7 @@ machinery, which this content doesn't need.
 cd frontend && npm run test -- how-to-play
 ```
 
-### Phase 4: 13x13 starting-hand matrix, color-coded worst to best
+### Phase 4: 13x13 starting-hand matrix, color-coded worst to best:
 
 Frontend only. New `starting-hand-strength.js` scores all 169 starting-hand classes with the
 standard **Chen Formula** (highest-card value, doubled for pairs, +2 suited, gap penalty, +1
@@ -1058,7 +1058,7 @@ offsuit below), wrapped in `overflow-x-auto`. Inserted after "The four streets."
 cd frontend && npm run test -- starting-hand how-to-play
 ```
 
-### Phase 5: stat tooltips on the Stats page
+### Phase 5: stat tooltips on the Stats page:
 
 Frontend only. New `tooltip.jsx` — a thin wrapper around `radix-ui`'s `Tooltip` primitives
 (already a dependency), styled to match the other shadcn components. New `stat-descriptions.js` —
