@@ -11,6 +11,10 @@ virtual bankroll only.
 **[project-3-kelly-poker-simulator.vercel.app](https://project-3-kelly-poker-simulator.vercel.app)**
 — open it directly; no invite or waitlist needed.
 
+Watch this demo: **[▶ Watch the demo (2x speed)](https://github.com/user-attachments/assets/680900bb-272d-4c26-8678-bddfadda9c3e)**
+
+
+
 Sign up with any email + password to play (real authentication, not a shared demo login). The
 backend (Render's free tier) spins down after ~15 minutes idle, so the very first request after
 a break can take 10-30 seconds to respond — that's expected, not a bug. Full deployment
